@@ -15,8 +15,14 @@ ifc_knowledge_graph/
 ├── venv/                  # Virtual environment (not tracked in Git)
 ├── .git/                  # Git repository data (not tracked in Git)
 ├── .gitignore             # Git ignore configuration
-└── requirements.txt       # Python dependencies
-└── README.md              # Project overview and instructions
+├── main.py                # Main application entry point
+├── direct_connection_test.py # Basic Neo4j connection test
+├── neo4j_setup_guide.md   # Guide for setting up Neo4j
+├── parse_test.py          # Simple IFC parsing test
+├── requirements.txt       # Python dependencies
+├── README.md              # Project overview and instructions
+├── test_neo4j_manual.py   # Neo4j connector test
+└── test_processor_manual.py # IFC to Neo4j processor test
 ```
 
 ## Directory Details
@@ -28,7 +34,7 @@ The data directory stores IFC model files and other data used by the application
 ```
 data/
 └── ifc_files/             # IFC model files
-    └── .gitkeep           # Placeholder to ensure directory is tracked in Git
+    └── Duplex_A_20110907.ifc # Sample IFC file
 ```
 
 ### `docs/`
@@ -37,10 +43,8 @@ The docs directory contains all project documentation.
 
 ```
 docs/
-├── concept.md             # Project concept and design brief
 ├── file_structure.md      # This document - explaining project structure
-├── implementationplan.md  # Implementation phases and tasks
-└── topologicpy.md         # Documentation about TopologicPy library
+└── implementationplan.md  # Implementation phases and tasks
 ```
 
 ### `src/`
@@ -52,11 +56,17 @@ src/
 └── ifc_to_graph/          # Main package
     ├── __init__.py        # Package initialization
     ├── cli/               # Command-line interface
-    │   └── __init__.py    # CLI module initialization
+    │   ├── __init__.py    # CLI module initialization
+    │   ├── ifc_parser_cli.py # Parser CLI
+    │   └── ifc_to_neo4j_cli.py # Neo4j conversion CLI
     ├── database/          # Neo4j database operations
-    │   └── __init__.py    # Database module initialization
+    │   ├── __init__.py    # Database module initialization
+    │   ├── neo4j_connector.py # Neo4j connection management
+    │   ├── schema.py      # Database schema definitions
+    │   └── ifc_to_graph_mapper.py # IFC to graph mapping logic
     ├── parser/            # IFC file parsing functionality
     │   └── __init__.py    # Parser module initialization
+    ├── processor.py       # Main processor for IFC to Neo4j conversion
     ├── topology/          # Topological analysis using TopologicPy
     │   └── __init__.py    # Topology module initialization
     └── utils/             # Helper utilities
@@ -70,7 +80,7 @@ The tests directory contains all tests for the application.
 ```
 tests/
 ├── __init__.py            # Tests package initialization
-└── test_neo4j_connection.py # Neo4j connection testing
+└── test_parser.py         # Parser unit tests
 ```
 
 ## Module Purposes
@@ -81,31 +91,42 @@ tests/
 
 2. **`topology/`**: Contains code for analyzing topological relationships between building elements using TopologicPy, including adjacency, containment, and connectivity.
 
-3. **`database/`**: Contains code for Neo4j database operations, including connection management, query execution, and transaction handling.
+3. **`database/`**: Contains code for Neo4j database operations, including:
+   - **`neo4j_connector.py`**: Connection management, query execution, and transaction handling
+   - **`schema.py`**: Schema definitions including node labels, relationship types, constraints, and indexes
+   - **`ifc_to_graph_mapper.py`**: Logic for mapping IFC entities to Neo4j graph elements
 
 4. **`utils/`**: Contains utility functions and helper classes used across the project.
 
 5. **`cli/`**: Contains command-line interface code for running the application from the command line.
 
-### Test Modules
+6. **`processor.py`**: Coordinates the entire IFC to Neo4j conversion process, using the parser and database modules.
 
-1. **`test_neo4j_connection.py`**: Tests the connection to the Neo4j database and sets up initial constraints and indexes.
+### Test and Utility Files
 
-## File Descriptions
+1. **`main.py`**: Main entry point for the application, providing a command-line interface.
 
-### Documentation Files
+2. **`direct_connection_test.py`**: Tests direct connection to Neo4j using the driver, bypassing custom modules.
 
-1. **`concept.md`**: Outlines the project vision, requirements, and technical approach.
+3. **`test_neo4j_manual.py`**: Tests the Neo4jConnector and SchemaManager classes.
+
+4. **`test_processor_manual.py`**: Tests the end-to-end IFC to Neo4j conversion process.
+
+5. **`parse_test.py`**: Simple test for IFC file parsing using IfcOpenShell.
+
+6. **`neo4j_setup_guide.md`**: Provides step-by-step instructions for setting up the Neo4j database.
+
+## Documentation Files
+
+1. **`file_structure.md`**: This document - explains the project structure in detail.
 
 2. **`implementationplan.md`**: Details the implementation phases and tasks for the project.
 
-3. **`topologicpy.md`**: Provides information about the TopologicPy library, its features, and usage.
+3. **`README.md`**: Gives an overview of the project, installation instructions, and basic usage information.
 
-4. **`README.md`**: Gives an overview of the project, installation instructions, and basic usage information.
+4. **`neo4j_setup_guide.md`**: Instructions for setting up and connecting to the Neo4j database.
 
-5. **`file_structure.md`**: This document - explains the project structure in detail.
-
-### Configuration Files
+## Configuration Files
 
 1. **`.gitignore`**: Specifies files and directories that Git should ignore, such as the virtual environment and Python cache files.
 
@@ -115,15 +136,17 @@ tests/
 
 The project is structured to support the following development workflow:
 
-1. **Data Preparation**: Place IFC model files in the `data/ifc_files/` directory.
+1. **Setup**: Follow the Neo4j setup guide to prepare the database environment.
 
-2. **Model Parsing**: Use the `parser` module to extract information from IFC files.
+2. **Data Preparation**: Place IFC model files in the `data/ifc_files/` directory.
 
-3. **Topological Analysis**: Use the `topology` module to analyze spatial relationships.
+3. **Model Parsing**: Use the `parser` module to extract information from IFC files.
 
-4. **Database Storage**: Use the `database` module to store the extracted information in Neo4j.
+4. **Topological Analysis**: Use the `topology` module to analyze spatial relationships.
 
-5. **Query and Analysis**: Use Neo4j queries (Cypher) to analyze and visualize the building information.
+5. **Database Storage**: Use the `database` module to store the extracted information in Neo4j.
+
+6. **Query and Analysis**: Use Neo4j queries (Cypher) to analyze and visualize the building information.
 
 ## Future Structure Additions
 

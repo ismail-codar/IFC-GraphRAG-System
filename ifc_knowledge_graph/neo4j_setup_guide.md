@@ -22,7 +22,7 @@ This guide will help you set up and start your Neo4j database for use with the I
      - Bolt URI: `bolt://localhost:7687`
      - Browser URL: `http://localhost:7474/browser/`
      - Username: `neo4j`
-     - Password: Your password (default is `neo4j` for new installations)
+     - Password: `test1234`
 
 4. **Open Neo4j Browser**
    - Click the "Open" button to launch Neo4j Browser
