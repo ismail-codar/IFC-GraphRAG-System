@@ -16,11 +16,11 @@ This module provides functionality for analyzing the topological relationships b
 ## Usage
 
 ```python
-from src.ifc_to_graph.parser.ifc_parser import IFCParser
+from src.ifc_to_graph.parser.ifc_parser import IfcParser
 from src.ifc_to_graph.topology.topologic_analyzer import TopologicAnalyzer
 
 # Initialize the IFC parser
-ifc_parser = IFCParser("path/to/model.ifc")
+ifc_parser = IfcParser("path/to/model.ifc")
 
 # Initialize the topological analyzer
 analyzer = TopologicAnalyzer(ifc_parser)

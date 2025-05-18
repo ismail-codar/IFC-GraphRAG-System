@@ -21,7 +21,7 @@ current_dir = Path(__file__).parent.absolute()
 sys.path.append(str(current_dir))
 
 # Import required modules
-from src.ifc_to_graph.parser.ifc_parser import IFCParser
+from src.ifc_to_graph.parser.ifc_parser import IfcParser
 from src.ifc_to_graph.topology.topologic_analyzer import TopologicAnalyzer
 from src.ifc_to_graph.database.neo4j_connector import Neo4jConnector
 from src.ifc_to_graph.database.schema import SchemaManager
@@ -62,7 +62,7 @@ def main():
         topo_mapper = TopologicToGraphMapper(connector)
         
         # Initialize the IFC parser
-        ifc_parser = IFCParser(ifc_path)
+        ifc_parser = IfcParser(ifc_path)
         
         # Initialize the topological analyzer
         analyzer = TopologicAnalyzer(ifc_parser)

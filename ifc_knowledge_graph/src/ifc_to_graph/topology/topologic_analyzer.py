@@ -40,21 +40,39 @@ class TopologicAnalyzer:
     using TopologicPy.
     """
     
-    def __init__(self, ifc_parser=None):
+    def __init__(self, ifc_parser):
         """
-        Initialize the topological analyzer.
+        Initialize the TopologicAnalyzer with an IFC parser.
         
         Args:
-            ifc_parser: Optional IFC parser instance to use for getting IFC data
+            ifc_parser: IFC parser instance
         """
-        if not TOPOLOGICPY_AVAILABLE:
-            logger.warning("TopologicPy is not available. Topological analysis will be limited.")
-        
         self.ifc_parser = ifc_parser
-        self.topologic_entities = {}  # Cache for topologic entities by GlobalId
-        self._space_boundaries_cache = {}  # Cache for space boundary relationships
-        self._adjacency_cache = {}  # Cache for adjacency relationships
-        self._containment_cache = {}  # Cache for containment relationships
+        self.topologic_entities = {}
+        self._adjacency_cache = {}
+        self._containment_cache = {}
+        self._space_boundaries_cache = None
+        self._connectivity_graph_cache = None
+        
+        # Configure logging for more detailed output during testing
+        self.logger = logging.getLogger(__name__)
+        
+        # Try to import TopologicPy
+        try:
+            global Cell, Face, Edge, Wire, Vertex, Dictionary, Cluster
+            from topologicpy.Cell import Cell
+            from topologicpy.Face import Face
+            from topologicpy.Edge import Edge
+            from topologicpy.Wire import Wire
+            from topologicpy.Vertex import Vertex
+            from topologicpy.Dictionary import Dictionary
+            from topologicpy.Cluster import Cluster
+            
+            self._has_topologicpy = True
+            self.logger.info("Successfully imported TopologicPy")
+        except ImportError as e:
+            self._has_topologicpy = False
+            self.logger.error(f"Failed to import TopologicPy: {str(e)}")
         
     def set_ifc_parser(self, ifc_parser) -> None:
         """
@@ -72,7 +90,7 @@ class TopologicAnalyzer:
             
     def _check_topologicpy(self) -> None:
         """Check if TopologicPy is available."""
-        if not TOPOLOGICPY_AVAILABLE:
+        if not self._has_topologicpy:
             raise ImportError("TopologicPy is not available. Cannot perform topological analysis.")
     
     def convert_ifc_to_topologic(self, ifc_element: Any) -> Optional[Any]:
@@ -92,19 +110,43 @@ class TopologicAnalyzer:
             return self.topologic_entities[ifc_element.GlobalId]
         
         try:
+            # Skip elements without representation
+            if not hasattr(ifc_element, "Representation") or not ifc_element.Representation:
+                logger.debug(f"Skipping element {ifc_element.GlobalId} - no representation")
+                return None
+                
             # Use IfcOpenShell's geometry settings
             settings = ifcopenshell.geom.settings()
+            settings.set(settings.USE_WORLD_COORDS, True)
             
-            # Create the shape from the IFC element
-            shape = ifcopenshell.geom.create_shape(settings, ifc_element)
+            # Try to use SEW_SHELLS setting if available in this version of IfcOpenShell
+            try:
+                settings.set(settings.SEW_SHELLS, True)
+            except AttributeError:
+                logger.warning("SEW_SHELLS setting not available in this version of IfcOpenShell, continuing without it")
+                
+            settings.set(settings.APPLY_DEFAULT_MATERIALS, True)
             
-            if shape:
+            try:
+                # Create the shape from the IFC element
+                shape = ifcopenshell.geom.create_shape(settings, ifc_element)
+                
+                if not shape:
+                    logger.debug(f"Failed to create shape for {ifc_element.GlobalId}")
+                    return None
+                    
                 # Get geometry data from the shape
                 verts = shape.geometry.verts
                 faces = shape.geometry.faces
                 
+                if len(verts) == 0 or len(faces) == 0:
+                    logger.debug(f"Element {ifc_element.GlobalId} has empty geometry")
+                    return None
+                
                 # Reshape vertices into triplets (x, y, z)
                 vertices = np.array(verts).reshape(-1, 3)
+                
+                logger.debug(f"Processing element {ifc_element.GlobalId} of type {ifc_element.is_a()} with {len(vertices)} vertices and {len(faces)} face indices")
                 
                 # Process faces to create a topologic entity
                 topologic_entity = None
@@ -112,18 +154,30 @@ class TopologicAnalyzer:
                 if ifc_element.is_a("IfcSpace"):
                     # Create a Cell for spaces
                     topologic_entity = self._create_topologic_cell(vertices, faces, ifc_element)
+                    if not topologic_entity:
+                        logger.debug(f"Failed to create Cell for space {ifc_element.GlobalId}, trying Face")
+                        topologic_entity = self._create_topologic_face(vertices, faces, ifc_element)
                     
                 elif ifc_element.is_a("IfcWall") or ifc_element.is_a("IfcSlab") or ifc_element.is_a("IfcRoof"):
-                    # Create a Face for walls, slabs, and roofs
-                    topologic_entity = self._create_topologic_face(vertices, faces, ifc_element)
+                    # Create a Cell for walls, slabs, and roofs (they're 3D elements)
+                    topologic_entity = self._create_topologic_cell(vertices, faces, ifc_element)
+                    if not topologic_entity:
+                        logger.debug(f"Failed to create Cell for {ifc_element.is_a()} {ifc_element.GlobalId}, trying Face")
+                        topologic_entity = self._create_topologic_face(vertices, faces, ifc_element)
                     
                 elif ifc_element.is_a("IfcBeam") or ifc_element.is_a("IfcColumn") or ifc_element.is_a("IfcMember"):
-                    # Create an Edge for beams, columns, and members
-                    topologic_entity = self._create_topologic_edge(vertices, faces, ifc_element)
+                    # Try Cell first, then Edge for beams, columns, and members
+                    topologic_entity = self._create_topologic_cell(vertices, faces, ifc_element)
+                    if not topologic_entity:
+                        logger.debug(f"Failed to create Cell for {ifc_element.is_a()} {ifc_element.GlobalId}, trying Edge")
+                        topologic_entity = self._create_topologic_edge(vertices, faces, ifc_element)
                     
                 elif ifc_element.is_a("IfcDoor") or ifc_element.is_a("IfcWindow"):
-                    # Create a Face for doors and windows
-                    topologic_entity = self._create_topologic_face(vertices, faces, ifc_element)
+                    # Create a Cell for doors and windows (they're 3D elements)
+                    topologic_entity = self._create_topologic_cell(vertices, faces, ifc_element)
+                    if not topologic_entity:
+                        logger.debug(f"Failed to create Cell for {ifc_element.is_a()} {ifc_element.GlobalId}, trying Face")
+                        topologic_entity = self._create_topologic_face(vertices, faces, ifc_element)
                     
                 else:
                     # Default: try to create a Cell for 3D elements
@@ -131,24 +185,47 @@ class TopologicAnalyzer:
                     
                     # Fallback to Face if Cell creation fails
                     if topologic_entity is None:
+                        logger.debug(f"Failed to create Cell for {ifc_element.is_a()} {ifc_element.GlobalId}, trying Face")
                         topologic_entity = self._create_topologic_face(vertices, faces, ifc_element)
                 
                 # Store in cache if successful
                 if topologic_entity and hasattr(ifc_element, "GlobalId"):
-                    # Add dictionary with IFC data to the topologic entity
-                    if hasattr(ifc_element, "GlobalId"):
-                        Dictionary.ByKeysValues(
-                            topologic_entity,
-                            ["GlobalId", "IFCType"], 
-                            [ifc_element.GlobalId, ifc_element.is_a()]
-                        )
-                    
-                    self.topologic_entities[ifc_element.GlobalId] = topologic_entity
+                    try:
+                        # Add dictionary with IFC data to the topologic entity
+                        # Create a dictionary object first with the key-value pairs
+                        dict_keys = ["GlobalId", "IFCType"]
+                        dict_values = [ifc_element.GlobalId, ifc_element.is_a()]
+                        
+                        # Check API compatibility based on parameter count
+                        try:
+                            # Try with 3 parameters (entity, keys, values) - older API
+                            Dictionary.ByKeysValues(
+                                topologic_entity,
+                                dict_keys, 
+                                dict_values
+                            )
+                        except TypeError:
+                            # Try with 2 parameters (keys, values) - newer API
+                            dictionary = Dictionary.ByKeysValues(dict_keys, dict_values)
+                            # Then set the dictionary to the entity
+                            topologic_entity.SetDictionary(dictionary)
+                        
+                        logger.debug(f"Successfully converted {ifc_element.is_a()} {ifc_element.GlobalId} to Topologic entity")
+                        self.topologic_entities[ifc_element.GlobalId] = topologic_entity
+                    except Exception as dict_error:
+                        logger.error(f"Error adding dictionary to topologic entity: {str(dict_error)}")
+                else:
+                    logger.warning(f"Failed to convert {ifc_element.is_a()} {ifc_element.GlobalId} to any Topologic entity")
                     
                 return topologic_entity
                 
+            except RuntimeError as shape_error:
+                # This is a common error when IfcOpenShell can't create a valid shape
+                logger.warning(f"RuntimeError creating shape for {ifc_element.GlobalId}: {str(shape_error)}")
+                return None
+                
         except Exception as e:
-            logger.error(f"Error converting IFC element to TopologicPy entity: {str(e)}")
+            logger.error(f"Error converting {ifc_element.is_a()} {ifc_element.GlobalId} to TopologicPy entity: {str(e)}")
             
         return None
     
@@ -165,6 +242,11 @@ class TopologicAnalyzer:
             TopologicPy Cell if successful, None otherwise
         """
         try:
+            # Check if we have enough data to create a Cell
+            if len(vertices) < 4 or len(faces) < 4:  # Minimum for a tetrahedron
+                logger.debug(f"Not enough vertices/faces for Cell: {len(vertices)} vertices, {len(faces)} face indices")
+                return None
+            
             # Create topologic vertices
             topologic_vertices = []
             for vertex in vertices:
@@ -174,35 +256,67 @@ class TopologicAnalyzer:
             # Create faces
             topologic_faces = []
             i = 0
-            while i < len(faces):
-                # Get number of vertices in this face
-                num_vertices = faces[i]
-                i += 1
-                
-                # Get the indices for this face
-                face_indices = faces[i:i+num_vertices]
-                i += num_vertices
-                
-                # Create wire from vertices
-                wire_vertices = []
-                for idx in face_indices:
-                    wire_vertices.append(topologic_vertices[idx])
-                
-                # Add closing vertex if not already closed
-                if face_indices[0] != face_indices[-1]:
-                    wire_vertices.append(topologic_vertices[face_indices[0]])
-                
-                # Create wire and face
-                wire = Wire.ByVertices(wire_vertices)
-                if wire:
-                    face = Face.ByWire(wire)
-                    if face:
-                        topologic_faces.append(face)
+            face_count = 0
             
-            # Create a cell from faces
-            if topologic_faces:
-                cell = Cell.ByFaces(topologic_faces, tolerance=0.0001)
-                return cell
+            while i < len(faces):
+                try:
+                    # Get number of vertices in this face
+                    num_vertices = faces[i]
+                    i += 1
+                    
+                    # Check if we have enough data remaining
+                    if i + num_vertices > len(faces):
+                        logger.warning(f"Face index out of range: i={i}, num_vertices={num_vertices}, len(faces)={len(faces)}")
+                        break
+                    
+                    # Get the indices for this face
+                    face_indices = faces[i:i+num_vertices]
+                    i += num_vertices
+                    
+                    # Skip faces with too few vertices
+                    if len(face_indices) < 3:
+                        logger.debug("Skipping face with fewer than 3 vertices")
+                        continue
+                    
+                    # Check if indices are in valid range
+                    if max(face_indices) >= len(topologic_vertices) or min(face_indices) < 0:
+                        logger.warning(f"Invalid vertex index in face: {face_indices}")
+                        continue
+                    
+                    # Create wire from vertices
+                    wire_vertices = []
+                    for idx in face_indices:
+                        wire_vertices.append(topologic_vertices[idx])
+                    
+                    # Add closing vertex if not already closed
+                    if face_indices[0] != face_indices[-1]:
+                        wire_vertices.append(topologic_vertices[face_indices[0]])
+                    
+                    # Create wire and face
+                    wire = Wire.ByVertices(wire_vertices)
+                    if wire:
+                        face = Face.ByWire(wire)
+                        if face:
+                            topologic_faces.append(face)
+                            face_count += 1
+                            
+                except Exception as face_error:
+                    logger.warning(f"Error processing face: {str(face_error)}")
+                    # Skip to the next face
+                    i += 1
+            
+            # Create a cell from faces if we have enough
+            if topologic_faces and len(topologic_faces) >= 4:  # Need at least 4 faces for a tetrahedron
+                try:
+                    # Try using a higher tolerance if needed
+                    cell = Cell.ByFaces(topologic_faces, tolerance=0.001)
+                    logger.debug(f"Created Cell with {face_count} faces")
+                    return cell
+                except Exception as cell_error:
+                    logger.warning(f"Failed to create Cell from faces: {str(cell_error)}")
+                    return None
+            else:
+                logger.debug(f"Not enough faces to create Cell: {len(topologic_faces)}")
                 
         except Exception as e:
             logger.error(f"Error creating TopologicPy Cell: {str(e)}")
@@ -222,35 +336,69 @@ class TopologicAnalyzer:
             TopologicPy Face if successful, None otherwise
         """
         try:
+            # Check if we have enough data
+            if len(vertices) < 3 or len(faces) < 3:  # Minimum for a triangle
+                logger.debug(f"Not enough vertices/faces for Face: {len(vertices)} vertices, {len(faces)} face indices")
+                return None
+                
             # Create topologic vertices
             topologic_vertices = []
             for vertex in vertices:
                 topologic_vertex = Vertex.ByCoordinates(vertex[0], vertex[1], vertex[2])
                 topologic_vertices.append(topologic_vertex)
             
-            # Create the first face (simplified approach)
-            if len(faces) > 0:
-                # Get number of vertices in the first face
-                num_vertices = faces[0]
-                
-                # Get the indices for this face
-                face_indices = faces[1:1+num_vertices]
-                
-                # Create wire from vertices
-                wire_vertices = []
-                for idx in face_indices:
-                    wire_vertices.append(topologic_vertices[idx])
-                
-                # Add closing vertex if not already closed
-                if face_indices[0] != face_indices[-1]:
-                    wire_vertices.append(topologic_vertices[face_indices[0]])
-                
-                # Create wire and face
-                wire = Wire.ByVertices(wire_vertices)
-                if wire:
-                    face = Face.ByWire(wire)
-                    return face
-                
+            # Try to create at least one valid face
+            i = 0
+            while i < len(faces):
+                try:
+                    # Get number of vertices in this face
+                    num_vertices = faces[i]
+                    i += 1
+                    
+                    # Check if we have enough data remaining
+                    if i + num_vertices > len(faces):
+                        logger.warning(f"Face index out of range: i={i}, num_vertices={num_vertices}, len(faces)={len(faces)}")
+                        break
+                    
+                    # Get the indices for this face
+                    face_indices = faces[i:i+num_vertices]
+                    i += num_vertices
+                    
+                    # Skip faces with too few vertices
+                    if len(face_indices) < 3:
+                        logger.debug("Skipping face with fewer than 3 vertices")
+                        continue
+                    
+                    # Check if indices are in valid range
+                    if max(face_indices) >= len(topologic_vertices) or min(face_indices) < 0:
+                        logger.warning(f"Invalid vertex index in face: {face_indices}")
+                        continue
+                        
+                    # Create wire from vertices
+                    wire_vertices = []
+                    for idx in face_indices:
+                        wire_vertices.append(topologic_vertices[idx])
+                    
+                    # Add closing vertex if not already closed
+                    if face_indices[0] != face_indices[-1]:
+                        wire_vertices.append(topologic_vertices[face_indices[0]])
+                    
+                    # Create wire and face
+                    wire = Wire.ByVertices(wire_vertices)
+                    if wire:
+                        face = Face.ByWire(wire)
+                        if face:
+                            logger.debug(f"Created Face with {len(wire_vertices)} vertices")
+                            return face
+                            
+                except Exception as face_error:
+                    logger.warning(f"Error processing face: {str(face_error)}")
+                    # Continue to the next face
+                    continue
+            
+            # If we get here, we couldn't create any valid faces
+            logger.debug("Could not create any valid Face from geometry")
+            
         except Exception as e:
             logger.error(f"Error creating TopologicPy Face: {str(e)}")
             
@@ -269,15 +417,98 @@ class TopologicAnalyzer:
             TopologicPy Edge if successful, None otherwise
         """
         try:
-            if len(vertices) >= 2:
-                # Create start and end vertices
-                start_vertex = Vertex.ByCoordinates(vertices[0][0], vertices[0][1], vertices[0][2])
-                end_vertex = Vertex.ByCoordinates(vertices[-1][0], vertices[-1][1], vertices[-1][2])
+            # Check if we have enough data
+            if len(vertices) < 2:  # Minimum for an edge
+                logger.debug(f"Not enough vertices for Edge: {len(vertices)} vertices")
+                return None
+            
+            # Create topologic vertices
+            topologic_vertices = []
+            for vertex in vertices:
+                topologic_vertex = Vertex.ByCoordinates(vertex[0], vertex[1], vertex[2])
+                topologic_vertices.append(topologic_vertex)
+            
+            # For linear elements, we can try to create an edge from the first two vertices
+            if len(topologic_vertices) >= 2:
+                try:
+                    # Create an edge between first and last vertex to ensure largest span
+                    edge = Edge.ByStartVertexEndVertex(
+                        topologic_vertices[0], 
+                        topologic_vertices[-1]
+                    )
+                    if edge:
+                        logger.debug(f"Created Edge from first to last vertex")
+                        return edge
+                except Exception as edge_error:
+                    logger.warning(f"Error creating edge from first to last vertex: {str(edge_error)}")
+            
+            # If we couldn't create an edge from first to last, try all pairs
+            # This might be needed for elements with multiple disconnected edges
+            edges = []
+            for i in range(len(topologic_vertices) - 1):
+                try:
+                    edge = Edge.ByStartVertexEndVertex(
+                        topologic_vertices[i],
+                        topologic_vertices[i+1]
+                    )
+                    if edge:
+                        edges.append(edge)
+                except Exception:
+                    pass
+            
+            if edges:
+                # If we have multiple edges, create a cluster of edges
+                if len(edges) > 1:
+                    try:
+                        cluster = Cluster.ByTopologies(edges)
+                        logger.debug(f"Created Cluster of {len(edges)} edges")
+                        return cluster
+                    except Exception as cluster_error:
+                        logger.warning(f"Error creating cluster: {str(cluster_error)}")
                 
-                # Create edge
-                edge = Edge.ByStartVertexEndVertex(start_vertex, end_vertex)
-                return edge
-                
+                # If we couldn't create a cluster or only have one edge, return the first edge
+                logger.debug(f"Created a single Edge")
+                return edges[0]
+            
+            # Try to use geometry faces to create a wire if available
+            if len(faces) > 0:
+                try:
+                    i = 0
+                    while i < len(faces):
+                        # Get number of vertices in this face
+                        num_vertices = faces[i]
+                        i += 1
+                        
+                        # Check if we have enough data
+                        if i + num_vertices > len(faces):
+                            break
+                        
+                        # Get the indices for this face
+                        face_indices = faces[i:i+num_vertices]
+                        i += num_vertices
+                        
+                        # Create wire from the face
+                        if len(face_indices) >= 2:
+                            wire_vertices = []
+                            
+                            # Use only perimeter vertices
+                            for idx in face_indices:
+                                if idx < len(topologic_vertices):
+                                    wire_vertices.append(topologic_vertices[idx])
+                            
+                            if len(wire_vertices) >= 2:
+                                # Try to create a wire
+                                wire = Wire.ByVertices(wire_vertices)
+                                if wire:
+                                    edges = wire.Edges()
+                                    if edges and len(edges) > 0:
+                                        logger.debug(f"Created Edge from Wire with {len(edges)} edges")
+                                        return edges[0]  # Return the first edge
+                except Exception as wire_error:
+                    logger.warning(f"Error creating Edge from Wire: {str(wire_error)}")
+            
+            logger.debug("Could not create any valid Edge from geometry")
+            
         except Exception as e:
             logger.error(f"Error creating TopologicPy Edge: {str(e)}")
             
@@ -306,7 +537,7 @@ class TopologicAnalyzer:
         
         try:
             # Get all IFC elements from the parser
-            ifc_model = self.ifc_parser.get_model()
+            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
             all_elements = ifc_model.by_type("IfcElement")
             
             # Ensure all elements are converted to topologic entities
@@ -421,7 +652,7 @@ class TopologicAnalyzer:
         
         try:
             # Get all IFC elements from the parser
-            ifc_model = self.ifc_parser.get_model()
+            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
             all_elements = ifc_model.by_type("IfcElement")
             
             # Ensure all elements are converted to topologic entities
@@ -511,8 +742,7 @@ class TopologicAnalyzer:
         """
         Extract space boundary relationships between spaces and building elements.
         
-        Space boundaries represent the relationship between spaces and the elements
-        that form their boundaries (walls, slabs, etc.).
+        Uses both IFC relationships and topological analysis.
         
         Returns:
             Dictionary mapping space GlobalIds to lists of boundary element GlobalIds
@@ -526,40 +756,28 @@ class TopologicAnalyzer:
         space_boundaries = {}
         
         try:
-            # Get all IFC space boundary relationships
-            ifc_model = self.ifc_parser.get_model()
-            space_boundary_relations = ifc_model.by_type("IfcRelSpaceBoundary")
+            # Get all IFC elements from the parser
+            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
+            spaces = ifc_model.by_type("IfcSpace")
             
-            logger.info(f"Found {len(space_boundary_relations)} space boundary relationships in the IFC model")
+            logger.info(f"Found {len(spaces)} spaces in the IFC model")
             
-            # Process each space boundary relationship
-            for rel in space_boundary_relations:
-                # Get the space and related element
-                space = rel.RelatingSpace
-                element = rel.RelatedBuildingElement
-                
-                # Skip if either space or element is invalid
-                if not space or not element:
+            # Process each space
+            for space in spaces:
+                # Skip if GlobalId is missing
+                if not hasattr(space, "GlobalId"):
                     continue
                     
-                # Skip if GlobalId is missing
-                if not hasattr(space, "GlobalId") or not hasattr(element, "GlobalId"):
-                    continue
-                
                 # Initialize space entry if not exists
                 if space.GlobalId not in space_boundaries:
                     space_boundaries[space.GlobalId] = []
                 
-                # Add element to space's boundaries if not already there
-                if element.GlobalId not in space_boundaries[space.GlobalId]:
-                    space_boundaries[space.GlobalId].append(element.GlobalId)
-                    
+                # Get space boundaries from IFC
+                space_boundaries[space.GlobalId].extend(self._get_space_boundaries_from_ifc(space))
+            
             # Try to find boundaries topologically if not many were found in IFC relationships
             if self._check_topologic_available() and sum(len(b) for b in space_boundaries.values()) < 10:
                 logger.info("Few space boundaries found in IFC data, attempting to detect topologically")
-                
-                # Get all spaces
-                spaces = ifc_model.by_type("IfcSpace")
                 
                 # Get all potential boundary elements
                 boundary_elements = []
@@ -623,43 +841,27 @@ class TopologicAnalyzer:
         Returns:
             True if TopologicPy is available, False otherwise
         """
-        return TOPOLOGICPY_AVAILABLE
+        return self._has_topologicpy
     
     def get_connectivity_graph(self) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
         """
-        Generate a connectivity graph of the building model.
+        Generate a comprehensive connectivity graph of the building model.
         
-        A connectivity graph represents how elements are connected through
-        various relationships (adjacency, containment, and space boundaries).
+        This includes adjacency, containment, and space boundary relationships.
         
         Returns:
-            A nested dictionary with elements as nodes and their connections,
-            structured as:
-            {
-                'elementId': {
-                    'adjacent': [{'id': 'adjacentElementId', 'type': 'elementType'}],
-                    'contains': [{'id': 'containedElementId', 'type': 'elementType'}],
-                    'contained_by': [{'id': 'containerElementId', 'type': 'elementType'}],
-                    'bounds_space': [{'id': 'spaceId', 'type': 'IfcSpace'}],
-                    'bounded_by': [{'id': 'boundaryElementId', 'type': 'elementType'}]
-                }
-            }
+            Dictionary mapping GlobalIds to dictionaries of relationship types,
+            each containing lists of connected element data.
         """
         self._check_parser()
         
+        # Initialize the connectivity graph
         connectivity_graph = {}
         
         try:
-            # Get all necessary relationship maps
-            adjacency_map = self.get_adjacency_relationships()
-            containment_map = self.get_containment_relationships()
-            space_boundaries = self.get_space_boundaries()
-            
             # Get all IFC elements
-            ifc_model = self.ifc_parser.get_model()
-            all_elements = []
-            for element_type in ["IfcElement", "IfcSpatialElement"]:
-                all_elements.extend(ifc_model.by_type(element_type))
+            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
+            all_elements = ifc_model.by_type("IfcElement")
             
             # Initialize the connectivity graph for each element
             for element in all_elements:
@@ -676,6 +878,11 @@ class TopologicAnalyzer:
                         "bounds_space": [],
                         "bounded_by": []
                     }
+            
+            # Get all necessary relationship maps
+            adjacency_map = self.get_adjacency_relationships()
+            containment_map = self.get_containment_relationships()
+            space_boundaries = self.get_space_boundaries()
             
             # Add adjacency relationships
             for element_id, adjacent_ids in adjacency_map.items():
@@ -966,3 +1173,46 @@ class TopologicAnalyzer:
             logger.error(f"Error generating connectivity graph: {str(e)}")
         
         return analysis_results 
+
+    def _get_space_boundaries_from_ifc(self, space) -> List[str]:
+        """
+        Get space boundaries from IFC relationships.
+        
+        Args:
+            space: The IFC space element
+        
+        Returns:
+            List of GlobalIds of boundary elements
+        """
+        boundary_ids = []
+        
+        try:
+            # Get space boundary relationships
+            ifc_model = self.ifc_parser.file
+            all_space_boundaries = ifc_model.by_type("IfcRelSpaceBoundary")
+            
+            # Filter relationships for this space
+            for rel in all_space_boundaries:
+                # Check if this relationship relates to the given space
+                if not hasattr(rel, "RelatingSpace") or rel.RelatingSpace is None:
+                    continue
+                    
+                if rel.RelatingSpace.GlobalId != space.GlobalId:
+                    continue
+                    
+                # Get the related building element
+                if not hasattr(rel, "RelatedBuildingElement") or rel.RelatedBuildingElement is None:
+                    continue
+                    
+                element = rel.RelatedBuildingElement
+                if not hasattr(element, "GlobalId"):
+                    continue
+                    
+                # Add to boundary list if not already there
+                if element.GlobalId not in boundary_ids:
+                    boundary_ids.append(element.GlobalId)
+                    
+        except Exception as e:
+            logger.error(f"Error getting space boundaries from IFC: {str(e)}")
+            
+        return boundary_ids 

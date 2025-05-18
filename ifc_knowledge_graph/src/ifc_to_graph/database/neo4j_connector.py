@@ -176,4 +176,19 @@ class Neo4jConnector:
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Clean up resources when exiting context."""
-        self.close() 
+        self.close()
+        
+    def test_connection(self) -> bool:
+        """
+        Test the connection to Neo4j database.
+        
+        Returns:
+            bool: True if the connection is successful, False otherwise
+        """
+        try:
+            # Simple query to test the connection
+            result = self.run_query("RETURN 1 AS test")
+            return result and len(result) > 0 and result[0].get("test") == 1
+        except Exception as e:
+            logger.error(f"Connection test failed: {str(e)}")
+            return False 

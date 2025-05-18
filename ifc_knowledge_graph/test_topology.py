@@ -20,7 +20,7 @@ current_dir = Path(__file__).parent.absolute()
 sys.path.append(str(current_dir))
 
 # Import required modules
-from src.ifc_to_graph.parser.ifc_parser import IFCParser
+from src.ifc_to_graph.parser.ifc_parser import IfcParser
 from src.ifc_to_graph.topology.topologic_analyzer import TopologicAnalyzer
 
 def main():
@@ -41,7 +41,7 @@ def main():
         logger.info(f"Analyzing IFC file: {ifc_path}")
         
         # Initialize the IFC parser
-        ifc_parser = IFCParser(ifc_path)
+        ifc_parser = IfcParser(ifc_path)
         
         # Initialize the topological analyzer
         analyzer = TopologicAnalyzer(ifc_parser)

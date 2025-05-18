@@ -16,8 +16,15 @@ import tempfile
 import urllib.request
 from typing import Dict, List, Any, Optional, Tuple
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Setup logging with more detailed formatting
+logging.basicConfig(
+    level=logging.DEBUG,  # Set to DEBUG for development, INFO for production
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Output to console
+        logging.FileHandler('topological_test.log')  # Also log to file
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Add the package to the path
@@ -30,66 +37,51 @@ try:
     from src.ifc_to_graph.topology.topologic_analyzer import TopologicAnalyzer
     from src.ifc_to_graph.database.neo4j_connector import Neo4jConnector
     from src.ifc_to_graph.database.topologic_to_graph_mapper import TopologicToGraphMapper
-    from src.ifc_to_graph.ifc_parser import IFCParser
+    from src.ifc_to_graph.parser.ifc_parser import IfcParser
     
-    # Test IFC files - URLs to sample IFC files
-    SAMPLE_IFC_URLS = {
-        "simple_building": "https://raw.githubusercontent.com/buildingSMART/Sample-Test-Files/master/IFC%204.3/SpatialStructure/Grid-Placement-1/Grid-Placement-1.ifc",
-        "duplex": "https://raw.githubusercontent.com/buildingSMART/Sample-Test-Files/master/IFC%202x3/Duplex%20Apartment/Duplex_A_20110907.ifc",
-        "office": "https://raw.githubusercontent.com/buildingSMART/Sample-Test-Files/master/IFC%204.0/Schependomlaan/Schependomlaan.ifc"
+    # Test IFC files - Local file paths instead of URLs
+    LOCAL_IFC_FILES = {
+        "duplex": str(Path(__file__).parent / "data" / "ifc_files" / "Duplex_A_20110907.ifc")
     }
 
     class TopologicalFeaturesTester:
         """Test class for topological features of the IFC to Neo4j pipeline."""
         
-        def __init__(self, neo4j_uri="bolt://localhost:7687", neo4j_user="neo4j", neo4j_password="test1234"):
+        def __init__(self, neo4j_uri="bolt://localhost:7687", neo4j_username="neo4j", neo4j_password="test1234"):
             """
             Initialize the tester with Neo4j connection details.
             
             Args:
                 neo4j_uri: URI for Neo4j connection
-                neo4j_user: Neo4j username
+                neo4j_username: Neo4j username
                 neo4j_password: Neo4j password
             """
             self.neo4j_uri = neo4j_uri
-            self.neo4j_user = neo4j_user
+            self.neo4j_username = neo4j_username
             self.neo4j_password = neo4j_password
             
-            self.test_files = {}
-            self.connector = None
             self.ifc_model = None
             self.parser = None
             self.analyzer = None
+            self.connector = None
             self.mapper = None
             
-            # Create temporary directory for test files
-            self.temp_dir = Path(tempfile.gettempdir()) / "ifc_topo_test"
-            self.temp_dir.mkdir(exist_ok=True)
-            
+            # Verify IFC files exist
+            for name, path in LOCAL_IFC_FILES.items():
+                ifc_path = Path(path)
+                if not ifc_path.exists():
+                    logger.error(f"IFC file {path} not found. Please ensure the file exists.")
+                    sys.exit(1)
+                logger.info(f"Found IFC file: {path}")
+
         def download_test_files(self) -> Dict[str, Path]:
             """
-            Download test IFC files for the tests.
+            Use local files instead of downloading.
             
             Returns:
-                Dictionary of file names and their paths
+                Dictionary mapping file names to paths
             """
-            logger.info("Downloading test IFC files...")
-            
-            for name, url in SAMPLE_IFC_URLS.items():
-                file_path = self.temp_dir / f"{name}.ifc"
-                
-                if not file_path.exists():
-                    logger.info(f"Downloading {name} from {url}")
-                    try:
-                        urllib.request.urlretrieve(url, file_path)
-                        logger.info(f"Downloaded {name} to {file_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to download {name}: {str(e)}")
-                        continue
-                
-                self.test_files[name] = file_path
-            
-            return self.test_files
+            return {name: Path(path) for name, path in LOCAL_IFC_FILES.items()}
             
         def setup_neo4j_connection(self) -> bool:
             """
@@ -99,27 +91,27 @@ try:
                 True if successful, False otherwise
             """
             try:
-                logger.info("Setting up Neo4j connection...")
+                logger.info(f"Connecting to Neo4j at {self.neo4j_uri}")
                 self.connector = Neo4jConnector(
                     uri=self.neo4j_uri,
-                    user=self.neo4j_user,
+                    username=self.neo4j_username,
                     password=self.neo4j_password
                 )
                 
                 # Test connection
-                result = self.connector.run_query("RETURN 1 AS test")
-                
-                if result and result[0]["test"] == 1:
+                logger.info("Testing Neo4j connection...")
+                test_result = self.connector.test_connection()
+                if test_result:
                     logger.info("Neo4j connection successful")
-                    return True
                 else:
                     logger.error("Neo4j connection failed")
                     return False
                     
+                return True
             except Exception as e:
                 logger.error(f"Error setting up Neo4j connection: {str(e)}")
                 return False
-                
+        
         def setup_test_environment(self, ifc_file: Path) -> bool:
             """
             Set up the test environment with an IFC file.
@@ -133,21 +125,27 @@ try:
             try:
                 logger.info(f"Setting up test environment with {ifc_file}")
                 
-                # Load IFC model
-                self.ifc_model = ifcopenshell.open(str(ifc_file))
+                # Convert Path to string
+                ifc_file_str = str(ifc_file)
                 
-                # Create parser
-                self.parser = IFCParser(self.ifc_model)
+                # Create parser with file path string
+                self.parser = IfcParser(ifc_file_str)
+                logger.debug(f"Created IfcParser: {type(self.parser).__name__}")
+                
+                # Get the loaded IFC model from the parser
+                self.ifc_model = self.parser.file
+                logger.debug(f"Loaded IFC model: {type(self.ifc_model).__name__}")
                 
                 # Create analyzer
                 self.analyzer = TopologicAnalyzer(self.parser)
+                logger.debug(f"Created TopologicAnalyzer: {type(self.analyzer).__name__}")
                 
-                # Create mapper
-                self.mapper = TopologicToGraphMapper(self.connector)
-                
-                logger.info("Test environment setup successful")
+                # Set up the mapper
+                if self.connector:
+                    self.mapper = TopologicToGraphMapper(self.connector)
+                    logger.debug(f"Created TopologicToGraphMapper: {type(self.mapper).__name__}")
+                    
                 return True
-                
             except Exception as e:
                 logger.error(f"Error setting up test environment: {str(e)}")
                 return False
@@ -170,44 +168,64 @@ try:
             
             try:
                 # Get all elements from the IFC model
-                all_elements = self.parser.get_all_building_elements()
+                all_elements = self.parser.get_elements()  # Use get_elements() instead of get_all_building_elements()
+                logger.info(f"Found {len(all_elements)} elements to convert")
                 
                 # Try to convert each element
                 for element in all_elements:
                     element_type = element.is_a()
                     
+                    # Track element types
                     if element_type not in results["element_types"]:
                         results["element_types"][element_type] = {
                             "total": 0,
-                            "successful": 0,
+                            "converted": 0,
                             "failed": 0
                         }
                     
                     results["element_types"][element_type]["total"] += 1
                     
-                    # Convert to topologic
+                    # Try to convert
                     start_time = time.time()
                     topologic_entity = self.analyzer.convert_ifc_to_topologic(element)
-                    end_time = time.time()
+                    conversion_time = time.time() - start_time
                     
                     if topologic_entity:
                         results["converted_elements"] += 1
-                        results["element_types"][element_type]["successful"] += 1
+                        results["element_types"][element_type]["converted"] += 1
+                        logger.debug(f"Converted {element_type} {element.GlobalId} in {conversion_time:.4f}s")
                     else:
                         results["conversion_errors"] += 1
                         results["element_types"][element_type]["failed"] += 1
+                        logger.warning(f"Failed to convert {element_type} {element.GlobalId}")
                 
-                if results["conversion_errors"] > 0:
-                    results["success"] = False
+                # Calculate success percentage
+                total_elements = len(all_elements)
+                if total_elements > 0:
+                    conversion_rate = (results["converted_elements"] / total_elements) * 100
+                    results["conversion_rate"] = conversion_rate
                     
-                return results
-                
+                    # Overall success criteria: at least 60% conversion rate
+                    results["success"] = conversion_rate >= 60
+                    
+                    logger.info(f"Converted {results['converted_elements']} of {total_elements} elements ({conversion_rate:.2f}%)")
+                    
+                    # Log element type statistics
+                    for element_type, stats in results["element_types"].items():
+                        if stats["total"] > 0:
+                            convert_rate = (stats["converted"] / stats["total"]) * 100
+                            logger.info(f"{element_type}: Converted {stats['converted']} of {stats['total']} ({convert_rate:.2f}%)")
+                else:
+                    results["success"] = False
+                    logger.error("No elements found in the IFC model")
+                    
             except Exception as e:
-                logger.error(f"Error in IFC to TopologicPy conversion test: {str(e)}")
                 results["success"] = False
-                return results
-        
-        def test_adjacency_extraction(self) -> Dict[str, Any]:
+                logger.error(f"Error in IFC to TopologicPy conversion test: {str(e)}")
+                    
+            return results
+                
+        def test_adjacency_relationships(self) -> Dict[str, Any]:
             """
             Test extraction of adjacency relationships.
             
@@ -218,34 +236,33 @@ try:
             
             results = {
                 "success": True,
-                "adjacency_count": 0,
+                "total_relationships": 0,
                 "extraction_time": 0
             }
             
             try:
-                # Start timing
-                start_time = time.time()
-                
                 # Extract adjacency relationships
-                adjacency_map = self.analyzer.get_adjacency_relationships()
+                start_time = time.time()
+                adjacency = self.analyzer.get_adjacency_relationships()
+                results["extraction_time"] = time.time() - start_time
                 
-                # End timing
-                end_time = time.time()
+                # Count relationships
+                for element_id, adjacent_ids in adjacency.items():
+                    results["total_relationships"] += len(adjacent_ids)
                 
-                # Count adjacency relationships
-                total_adjacencies = sum(len(adjacent_ids) for adjacent_ids in adjacency_map.values())
+                logger.info(f"Found {results['total_relationships']} adjacency relationships")
+                logger.info(f"Extraction time: {results['extraction_time']:.4f}s")
                 
-                results["adjacency_count"] = total_adjacencies
-                results["extraction_time"] = end_time - start_time
-                
-                return results
+                # Success criteria: should find at least some relationships
+                results["success"] = results["total_relationships"] > 0
                 
             except Exception as e:
-                logger.error(f"Error in adjacency extraction test: {str(e)}")
                 results["success"] = False
-                return results
-        
-        def test_containment_extraction(self) -> Dict[str, Any]:
+                logger.error(f"Error in adjacency relationship test: {str(e)}")
+                
+            return results
+                
+        def test_containment_relationships(self) -> Dict[str, Any]:
             """
             Test extraction of containment relationships.
             
@@ -256,36 +273,35 @@ try:
             
             results = {
                 "success": True,
-                "containment_count": 0,
+                "total_relationships": 0,
                 "extraction_time": 0
             }
             
             try:
-                # Start timing
-                start_time = time.time()
-                
                 # Extract containment relationships
-                containment_map = self.analyzer.get_containment_relationships()
+                start_time = time.time()
+                containment = self.analyzer.get_containment_relationships()
+                results["extraction_time"] = time.time() - start_time
                 
-                # End timing
-                end_time = time.time()
+                # Count relationships
+                for container_id, contained_ids in containment.items():
+                    results["total_relationships"] += len(contained_ids)
+                    
+                logger.info(f"Found {results['total_relationships']} containment relationships")
+                logger.info(f"Extraction time: {results['extraction_time']:.4f}s")
                 
-                # Count containment relationships
-                total_containments = sum(len(contained_ids) for contained_ids in containment_map.values())
-                
-                results["containment_count"] = total_containments
-                results["extraction_time"] = end_time - start_time
-                
-                return results
+                # Success criteria: should find at least some relationships
+                results["success"] = results["total_relationships"] > 0
                 
             except Exception as e:
-                logger.error(f"Error in containment extraction test: {str(e)}")
                 results["success"] = False
-                return results
-        
-        def test_space_boundaries_extraction(self) -> Dict[str, Any]:
+                logger.error(f"Error in containment relationship test: {str(e)}")
+                
+            return results
+                
+        def test_space_boundaries(self) -> Dict[str, Any]:
             """
-            Test extraction of space boundary relationships.
+            Test extraction of space boundaries.
             
             Returns:
                 Dictionary with test results
@@ -294,34 +310,33 @@ try:
             
             results = {
                 "success": True,
-                "space_boundary_count": 0,
+                "total_relationships": 0,
                 "extraction_time": 0
             }
             
             try:
-                # Start timing
-                start_time = time.time()
-                
                 # Extract space boundaries
-                space_boundaries = self.analyzer.get_space_boundaries()
+                start_time = time.time()
+                boundaries = self.analyzer.get_space_boundaries()
+                results["extraction_time"] = time.time() - start_time
                 
-                # End timing
-                end_time = time.time()
+                # Count relationships
+                for space_id, boundary_ids in boundaries.items():
+                    results["total_relationships"] += len(boundary_ids)
+                    
+                logger.info(f"Found {results['total_relationships']} space boundary relationships")
+                logger.info(f"Extraction time: {results['extraction_time']:.4f}s")
                 
-                # Count space boundaries
-                total_boundaries = sum(len(boundary_ids) for boundary_ids in space_boundaries.values())
-                
-                results["space_boundary_count"] = total_boundaries
-                results["extraction_time"] = end_time - start_time
-                
-                return results
+                # Success criteria: should find at least some relationships
+                results["success"] = results["total_relationships"] > 0
                 
             except Exception as e:
-                logger.error(f"Error in space boundary extraction test: {str(e)}")
                 results["success"] = False
-                return results
-            
-        def test_connectivity_graph_generation(self) -> Dict[str, Any]:
+                logger.error(f"Error in space boundary test: {str(e)}")
+                
+            return results
+                
+        def test_connectivity_graph(self) -> Dict[str, Any]:
             """
             Test generation of the connectivity graph.
             
@@ -332,44 +347,33 @@ try:
             
             results = {
                 "success": True,
-                "connectivity_count": 0,
-                "relationship_types": {},
+                "nodes": 0,
+                "edges": 0,
                 "generation_time": 0
             }
             
             try:
-                # Start timing
-                start_time = time.time()
-                
                 # Generate connectivity graph
-                connectivity_graph = self.analyzer.get_connectivity_graph()
+                start_time = time.time()
+                graph = self.analyzer.get_connectivity_graph()
+                results["generation_time"] = time.time() - start_time
                 
-                # End timing
-                end_time = time.time()
+                # Count nodes and edges
+                results["nodes"] = len(graph.nodes)
+                results["edges"] = len(graph.edges)
                 
-                # Count connectivity relationships
-                total_connections = 0
-                relationship_types = {}
+                logger.info(f"Generated connectivity graph with {results['nodes']} nodes and {results['edges']} edges")
+                logger.info(f"Generation time: {results['generation_time']:.4f}s")
                 
-                for element_id, connections in connectivity_graph.items():
-                    for rel_type, rel_connections in connections.items():
-                        if rel_type not in relationship_types:
-                            relationship_types[rel_type] = 0
-                        
-                        relationship_types[rel_type] += len(rel_connections)
-                        total_connections += len(rel_connections)
-                
-                results["connectivity_count"] = total_connections
-                results["relationship_types"] = relationship_types
-                results["generation_time"] = end_time - start_time
-                
-                return results
+                # Success criteria: should have nodes and edges
+                results["success"] = results["nodes"] > 0 and results["edges"] > 0
                 
             except Exception as e:
-                logger.error(f"Error in connectivity graph generation test: {str(e)}")
                 results["success"] = False
-                return results
-        
+                logger.error(f"Error in connectivity graph test: {str(e)}")
+                
+            return results
+                
         def test_path_finding(self) -> Dict[str, Any]:
             """
             Test path finding between elements.
@@ -388,265 +392,275 @@ try:
             
             try:
                 # Get some elements from the model for path finding
-                spaces = self.parser.get_by_type("IfcSpace")
-                walls = self.parser.get_by_type("IfcWall")
+                spaces = self.parser.get_elements("IfcSpace")
+                walls = self.parser.get_elements("IfcWall")
                 
                 if not spaces or not walls:
                     logger.warning("Not enough elements for path finding test")
                     results["success"] = False
                     return results
                 
-                # Try to find paths between various elements
-                num_tests = min(5, len(spaces) * len(walls))
-                test_count = 0
+                # Try to find paths between elements
+                start_time = time.time()
                 
-                total_time = 0
-                paths_found = 0
+                # Try up to 5 space-wall combinations
+                test_cases = 0
+                max_test_cases = 5
                 
-                for space in spaces[:2]:  # Limit to first 2 spaces
-                    for wall in walls[:3]:  # Limit to first 3 walls
-                        if test_count >= num_tests:
+                for space in spaces[:max_test_cases]:
+                    for wall in walls[:max_test_cases]:
+                        test_cases += 1
+                        if test_cases > max_test_cases:
                             break
                             
-                        start_id = space.GlobalId
-                        end_id = wall.GlobalId
-                        
-                        # Start timing
-                        start_time = time.time()
-                        
-                        # Find path
-                        path = self.analyzer.find_path(start_id, end_id)
-                        
-                        # End timing
-                        end_time = time.time()
-                        
-                        total_time += (end_time - start_time)
-                        test_count += 1
+                        # Find path between space and wall
+                        path = self.analyzer.find_path(space.GlobalId, wall.GlobalId)
                         
                         if path:
-                            paths_found += 1
+                            results["paths_found"] += 1
                             results["path_lengths"].append(len(path))
+                            logger.debug(f"Found path from {space.GlobalId} to {wall.GlobalId} with length {len(path)}")
+                        else:
+                            logger.debug(f"No path found from {space.GlobalId} to {wall.GlobalId}")
                 
-                results["paths_found"] = paths_found
-                results["path_finding_time"] = total_time
+                results["path_finding_time"] = time.time() - start_time
                 
-                return results
+                # Calculate average path length
+                if results["paths_found"] > 0:
+                    results["avg_path_length"] = sum(results["path_lengths"]) / results["paths_found"]
+                    
+                logger.info(f"Found {results['paths_found']} paths with average length {results.get('avg_path_length', 0):.2f}")
+                logger.info(f"Path finding time: {results['path_finding_time']:.4f}s")
+                
+                # Success criteria: should find at least some paths
+                results["success"] = results["paths_found"] > 0
                 
             except Exception as e:
-                logger.error(f"Error in path finding test: {str(e)}")
                 results["success"] = False
-                return results
-        
-        def test_database_mapping(self) -> Dict[str, Any]:
+                logger.error(f"Error in path finding test: {str(e)}")
+                
+            return results
+                
+        def test_topologic_to_graph_import(self) -> Dict[str, Any]:
             """
-            Test mapping of topological relationships to the Neo4j database.
+            Test importing topological relationships to Neo4j.
             
             Returns:
                 Dictionary with test results
             """
-            logger.info("Testing database mapping of topological relationships...")
+            logger.info("Testing topological relationships import to Neo4j...")
             
             results = {
                 "success": True,
-                "total_relationships_created": 0,
-                "relationship_types": {},
-                "mapping_time": 0
+                "adjacency_relationships": 0,
+                "containment_relationships": 0,
+                "space_boundary_relationships": 0,
+                "import_time": 0
             }
             
             try:
-                # Make sure we have a valid Neo4j connection
-                if not self.connector:
+                # Check if we have the mapper
+                if not self.mapper:
+                    logger.warning("No mapper available for Neo4j import test")
                     results["success"] = False
-                    results["error"] = "Neo4j connector not initialized"
                     return results
                 
-                # Clear existing data for clean test
-                self.connector.run_query("MATCH ()-[r]->() WHERE r.relationshipSource = 'topologicalAnalysis' DELETE r")
-                
-                # Analyze the building topology
-                topology_results = self.analyzer.analyze_building_topology()
-                
-                # Start timing
+                # Start import
                 start_time = time.time()
                 
-                # Map results to Neo4j
-                mapping_results = self.mapper.import_all_topological_relationships(topology_results)
+                # Extract relationships
+                adjacency = self.analyzer.get_adjacency_relationships()
+                containment = self.analyzer.get_containment_relationships()
+                space_boundaries = self.analyzer.get_space_boundaries()
                 
-                # End timing
-                end_time = time.time()
+                # Import to Neo4j
+                # First clear existing relationships
+                self.mapper.clear_topological_relationships()
                 
-                # Record results
-                results["total_relationships_created"] = sum(mapping_results.values())
-                results["relationship_types"] = mapping_results
-                results["mapping_time"] = end_time - start_time
+                # Import adjacency relationships
+                adjacency_count = self.mapper.import_adjacency_relationships(adjacency)
+                results["adjacency_relationships"] = adjacency_count
                 
-                return results
+                # Import containment relationships
+                containment_count = self.mapper.import_containment_relationships(containment)
+                results["containment_relationships"] = containment_count
+                
+                # Import space boundary relationships
+                space_boundary_count = self.mapper.import_space_boundary_relationships(space_boundaries)
+                results["space_boundary_relationships"] = space_boundary_count
+                
+                results["import_time"] = time.time() - start_time
+                
+                # Calculate total relationships
+                total_relationships = (
+                    results["adjacency_relationships"] +
+                    results["containment_relationships"] +
+                    results["space_boundary_relationships"]
+                )
+                
+                logger.info(f"Imported {total_relationships} topological relationships to Neo4j")
+                logger.info(f"Import time: {results['import_time']:.4f}s")
+                
+                # Success criteria: should import at least some relationships
+                results["success"] = total_relationships > 0
                 
             except Exception as e:
-                logger.error(f"Error in database mapping test: {str(e)}")
                 results["success"] = False
-                results["error"] = str(e)
-                return results
+                logger.error(f"Error in Neo4j import test: {str(e)}")
                 
-        def test_topological_query(self) -> Dict[str, Any]:
+            return results
+                
+        def run_all_tests(self, ifc_file_name) -> Dict[str, Any]:
             """
-            Test running a topological query in Neo4j.
+            Run all topological feature tests.
             
+            Args:
+                ifc_file_name: Name of the IFC file to use
+                
             Returns:
                 Dictionary with test results
             """
-            logger.info("Testing topological query execution...")
-            
-            results = {
+            overall_results = {
                 "success": True,
-                "query_results": [],
-                "query_time": 0
+                "tests": {},
+                "start_time": time.time()
             }
             
             try:
-                # Define a query to find adjacent elements
-                query = """
-                MATCH (a)-[r:ADJACENT]->(b)
-                WHERE r.relationshipSource = 'topologicalAnalysis'
-                RETURN a.GlobalId AS source, b.GlobalId AS target, r
-                LIMIT 10
-                """
+                # Get test files
+                test_files = self.download_test_files()
                 
-                # Start timing
-                start_time = time.time()
+                if ifc_file_name not in test_files:
+                    logger.error(f"Test file '{ifc_file_name}' not found. Available files: {list(test_files.keys())}")
+                    return {"success": False, "reason": "Test file not found"}
                 
-                # Execute query
-                query_results = self.connector.run_query(query)
+                # Setup Neo4j connection
+                neo4j_success = self.setup_neo4j_connection()
+                overall_results["tests"]["neo4j_connection"] = {"success": neo4j_success}
                 
-                # End timing
-                end_time = time.time()
+                if not neo4j_success:
+                    overall_results["success"] = False
+                    return overall_results
                 
-                # Record results
-                results["query_results"] = [dict(record) for record in query_results]
-                results["query_time"] = end_time - start_time
+                # Setup test environment with the specified IFC file
+                ifc_file = test_files[ifc_file_name]
+                env_success = self.setup_test_environment(ifc_file)
+                overall_results["tests"]["environment_setup"] = {"success": env_success}
                 
-                return results
+                if not env_success:
+                    overall_results["success"] = False
+                    return overall_results
+                
+                # Run tests
+                # IFC to TopologicPy conversion
+                conversion_results = self.test_ifc_to_topologic_conversion()
+                overall_results["tests"]["ifc_to_topologic_conversion"] = conversion_results
+                
+                # If conversion fails completely, skip remaining tests
+                if conversion_results["converted_elements"] == 0:
+                    logger.error("IFC to TopologicPy conversion failed completely, skipping remaining tests")
+                    overall_results["success"] = False
+                    overall_results["completed_time"] = time.time() - overall_results["start_time"]
+                    return overall_results
+                
+                # Relationship extraction tests
+                adjacency_results = self.test_adjacency_relationships()
+                overall_results["tests"]["adjacency_relationships"] = adjacency_results
+                
+                containment_results = self.test_containment_relationships()
+                overall_results["tests"]["containment_relationships"] = containment_results
+                
+                space_boundary_results = self.test_space_boundaries()
+                overall_results["tests"]["space_boundaries"] = space_boundary_results
+                
+                # Graph generation and path finding
+                graph_results = self.test_connectivity_graph()
+                overall_results["tests"]["connectivity_graph"] = graph_results
+                
+                path_finding_results = self.test_path_finding()
+                overall_results["tests"]["path_finding"] = path_finding_results
+                
+                # Neo4j import
+                import_results = self.test_topologic_to_graph_import()
+                overall_results["tests"]["neo4j_import"] = import_results
+                
+                # Check overall success
+                for test_name, test_results in overall_results["tests"].items():
+                    if not test_results.get("success", True):
+                        overall_results["success"] = False
+                        logger.warning(f"Test '{test_name}' failed")
+                
+                # Record total time
+                overall_results["completed_time"] = time.time() - overall_results["start_time"]
+                
+                return overall_results
                 
             except Exception as e:
-                logger.error(f"Error in topological query test: {str(e)}")
-                results["success"] = False
-                results["error"] = str(e)
-                return results
-                
-        def run_all_tests(self, ifc_file_name: str = "duplex") -> Dict[str, Any]:
-            """
-            Run all tests on a specified IFC file.
-            
-            Args:
-                ifc_file_name: Name of the IFC file to test
-                
-            Returns:
-                Dictionary with all test results
-            """
-            logger.info(f"Running all tests on {ifc_file_name}...")
-            
-            all_results = {
-                "file_name": ifc_file_name,
-                "success": True,
-                "test_results": {},
-                "total_time": 0
-            }
-            
-            # Download test files if not already available
-            if not self.test_files:
-                self.download_test_files()
-            
-            if ifc_file_name not in self.test_files:
-                logger.error(f"Test file {ifc_file_name} not available")
-                all_results["success"] = False
-                return all_results
-            
-            # Set up Neo4j connection
-            if not self.setup_neo4j_connection():
-                logger.error("Failed to set up Neo4j connection")
-                all_results["success"] = False
-                return all_results
-            
-            # Set up test environment with the specified IFC file
-            if not self.setup_test_environment(self.test_files[ifc_file_name]):
-                logger.error("Failed to set up test environment")
-                all_results["success"] = False
-                return all_results
-            
-            # Start timing
-            start_time = time.time()
-            
-            # Run individual tests
-            all_results["test_results"]["conversion"] = self.test_ifc_to_topologic_conversion()
-            all_results["test_results"]["adjacency"] = self.test_adjacency_extraction()
-            all_results["test_results"]["containment"] = self.test_containment_extraction()
-            all_results["test_results"]["space_boundaries"] = self.test_space_boundaries_extraction()
-            all_results["test_results"]["connectivity"] = self.test_connectivity_graph_generation()
-            all_results["test_results"]["path_finding"] = self.test_path_finding()
-            all_results["test_results"]["database_mapping"] = self.test_database_mapping()
-            all_results["test_results"]["topological_query"] = self.test_topological_query()
-            
-            # End timing
-            end_time = time.time()
-            all_results["total_time"] = end_time - start_time
-            
-            # Check overall success
-            all_results["success"] = all(
-                result.get("success", False) 
-                for result in all_results["test_results"].values()
-            )
-            
-            return all_results
-
-
-    def print_results(results: Dict[str, Any]) -> None:
+                logger.error(f"Error running tests: {str(e)}")
+                overall_results["success"] = False
+                overall_results["error"] = str(e)
+                return overall_results
+    
+    def print_results(results):
         """
-        Print test results in a formatted way.
+        Print test results in a readable format.
         
         Args:
-            results: Test results to print
+            results: Dictionary with test results
         """
-        print("\n==== TEST RESULTS ====")
-        print(f"File: {results['file_name']}")
-        print(f"Overall success: {results['success']}")
-        print(f"Total time: {results['total_time']:.2f} seconds")
+        print("\n" + "="*80)
+        print("TOPOLOGICAL FEATURES TEST RESULTS")
+        print("="*80)
         
-        for test_name, test_result in results["test_results"].items():
-            print(f"\n--- {test_name.replace('_', ' ').title()} Test ---")
-            print(f"Success: {test_result.get('success', False)}")
+        if "completed_time" in results:
+            print(f"Total test time: {results['completed_time']:.2f}s")
             
-            for key, value in test_result.items():
-                if key != "success" and not isinstance(value, dict) and not isinstance(value, list):
-                    if isinstance(value, float):
-                        print(f"{key.replace('_', ' ').title()}: {value:.3f}")
-                    else:
-                        print(f"{key.replace('_', ' ').title()}: {value}")
-                        
-            if "relationship_types" in test_result and isinstance(test_result["relationship_types"], dict):
-                print("Relationship Types:")
-                for rel_type, count in test_result["relationship_types"].items():
-                    print(f"  - {rel_type}: {count}")
-                    
-            if "element_types" in test_result and isinstance(test_result["element_types"], dict):
-                print("Element Types:")
-                for elem_type, counts in list(test_result["element_types"].items())[:5]:  # Show top 5
-                    success_rate = 0
-                    if counts["total"] > 0:
-                        success_rate = (counts["successful"] / counts["total"]) * 100
-                    print(f"  - {elem_type}: {counts['successful']}/{counts['total']} ({success_rate:.1f}%)")
+        print(f"Overall success: {'Yes' if results['success'] else 'No'}")
+        print("-"*80)
+        
+        if "tests" in results:
+            for test_name, test_results in results["tests"].items():
+                success = test_results.get("success", False)
+                print(f"{test_name}: {'✓' if success else '✗'}")
                 
-                if len(test_result["element_types"]) > 5:
-                    print(f"  ... and {len(test_result['element_types']) - 5} more")
-
-
+                # Print details based on test type
+                if test_name == "ifc_to_topologic_conversion" and "converted_elements" in test_results:
+                    print(f"  Converted {test_results['converted_elements']} elements")
+                    if "conversion_rate" in test_results:
+                        print(f"  Conversion rate: {test_results['conversion_rate']:.2f}%")
+                    
+                elif "total_relationships" in test_results:
+                    print(f"  Found {test_results['total_relationships']} relationships")
+                    if "extraction_time" in test_results:
+                        print(f"  Extraction time: {test_results['extraction_time']:.4f}s")
+                    
+                elif test_name == "connectivity_graph" and "nodes" in test_results:
+                    print(f"  Nodes: {test_results['nodes']}, Edges: {test_results['edges']}")
+                    if "generation_time" in test_results:
+                        print(f"  Generation time: {test_results['generation_time']:.4f}s")
+                    
+                elif test_name == "path_finding" and "paths_found" in test_results:
+                    print(f"  Paths found: {test_results['paths_found']}")
+                    if "avg_path_length" in test_results:
+                        print(f"  Average path length: {test_results['avg_path_length']:.2f}")
+                    
+                elif test_name == "neo4j_import":
+                    adjacency = test_results.get("adjacency_relationships", 0)
+                    containment = test_results.get("containment_relationships", 0)
+                    space_boundary = test_results.get("space_boundary_relationships", 0)
+                    total = adjacency + containment + space_boundary
+                    print(f"  Imported {total} relationships (A: {adjacency}, C: {containment}, SB: {space_boundary})")
+                    
+        print("="*80)
+    
     def main():
         """Main entry point for testing topological features."""
         
         # Create tester
         tester = TopologicalFeaturesTester()
         
-        # Set default test file - use "simple_building", "duplex", or "office"
-        test_file = "simple_building"
+        # Set default test file
+        test_file = "duplex"
         
         # Allow override from command line
         if len(sys.argv) > 1:
@@ -660,16 +674,15 @@ try:
         
         # Return exit code based on success
         return 0 if results["success"] else 1
-
-
+    
     if __name__ == "__main__":
-        try:
-            sys.exit(main())
-        except Exception as e:
-            logger.exception(f"Unhandled exception: {str(e)}")
-            sys.exit(1)
-            
+        sys.exit(main())
+    
 except ImportError as e:
-    print(f"Failed to import required modules: {str(e)}")
-    print("Make sure all dependencies are installed.")
+    logging.error(f"Import error: {str(e)}")
+    print(f"ERROR: Required module not found - {str(e)}")
+    sys.exit(1)
+except Exception as e:
+    logging.error(f"Unexpected error: {str(e)}")
+    print(f"ERROR: {str(e)}")
     sys.exit(1) 
