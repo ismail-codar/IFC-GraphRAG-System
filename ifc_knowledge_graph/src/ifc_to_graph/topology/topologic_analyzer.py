@@ -9,6 +9,7 @@ import logging
 import os
 import tempfile
 from typing import Dict, List, Set, Tuple, Optional, Any, Union
+import collections
 
 import ifcopenshell
 import ifcopenshell.geom
@@ -196,19 +197,27 @@ class TopologicAnalyzer:
                         dict_keys = ["GlobalId", "IFCType"]
                         dict_values = [ifc_element.GlobalId, ifc_element.is_a()]
                         
-                        # Check API compatibility based on parameter count
-                        try:
-                            # Try with 3 parameters (entity, keys, values) - older API
-                            Dictionary.ByKeysValues(
-                                topologic_entity,
-                                dict_keys, 
-                                dict_values
-                            )
-                        except TypeError:
-                            # Try with 2 parameters (keys, values) - newer API
-                            dictionary = Dictionary.ByKeysValues(dict_keys, dict_values)
-                            # Then set the dictionary to the entity
-                            topologic_entity.SetDictionary(dictionary)
+                        # Fix: First verify if topologic_entity is a list or a single object
+                        if isinstance(topologic_entity, list):
+                            # For lists (like clusters), use the first item
+                            if len(topologic_entity) > 0:
+                                entity_to_use = topologic_entity[0]
+                                try:
+                                    # Try with dictionary as parameter
+                                    dictionary = Dictionary.ByKeysValues(dict_keys, dict_values)
+                                    entity_to_use.SetDictionary(dictionary)
+                                except (AttributeError, TypeError):
+                                    # Fallback to older API if needed
+                                    Dictionary.ByKeysValues(entity_to_use, dict_keys, dict_values)
+                        else:
+                            # For single entities
+                            try:
+                                # Try with dictionary as parameter first (newer API)
+                                dictionary = Dictionary.ByKeysValues(dict_keys, dict_values)
+                                topologic_entity.SetDictionary(dictionary)
+                            except (AttributeError, TypeError):
+                                # Fallback to older API
+                                Dictionary.ByKeysValues(topologic_entity, dict_keys, dict_values)
                         
                         logger.debug(f"Successfully converted {ifc_element.is_a()} {ifc_element.GlobalId} to Topologic entity")
                         self.topologic_entities[ifc_element.GlobalId] = topologic_entity
@@ -540,6 +549,8 @@ class TopologicAnalyzer:
             ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
             all_elements = ifc_model.by_type("IfcElement")
             
+            logger.info(f"Processing {len(all_elements)} elements for adjacency relationships")
+            
             # Ensure all elements are converted to topologic entities
             for element in all_elements:
                 if hasattr(element, "GlobalId") and element.GlobalId not in self.topologic_entities:
@@ -547,6 +558,7 @@ class TopologicAnalyzer:
             
             # Get all GlobalIds that were successfully converted
             global_ids = list(self.topologic_entities.keys())
+            logger.info(f"Found {len(global_ids)} successfully converted elements")
             
             # Create a list of entities with their GlobalIds
             entities_with_ids = [(gid, self.topologic_entities[gid]) for gid in global_ids]
@@ -555,79 +567,228 @@ class TopologicAnalyzer:
             for gid in global_ids:
                 adjacency_map[gid] = []
             
-            # Check pairs of elements for adjacency
-            for i in range(len(entities_with_ids)):
-                gid1, entity1 = entities_with_ids[i]
+            # Fallback to IFC-based adjacency if very few entities have been converted
+            if len(entities_with_ids) < 10:
+                logger.warning("Few topologic entities available, using IFC-based adjacency")
                 
-                for j in range(i+1, len(entities_with_ids)):
-                    gid2, entity2 = entities_with_ids[j]
-                    
-                    # Skip if same element
-                    if gid1 == gid2:
+                # Look at all walls and connected elements
+                for element in all_elements:
+                    if not hasattr(element, "GlobalId"):
                         continue
                     
-                    # Check adjacency based on topology type
-                    is_adjacent = False
+                    # Consider elements that are likely to be adjacent
+                    # Most common adjacency: Walls to other walls
+                    if element.is_a("IfcWall") or element.is_a("IfcWallStandardCase"):
+                        # Find other walls that might be connected
+                        for other in all_elements:
+                            if not hasattr(other, "GlobalId") or element.GlobalId == other.GlobalId:
+                                continue
+                                
+                            if (other.is_a("IfcWall") or other.is_a("IfcWallStandardCase")):
+                                # Walls sharing the same space boundary are adjacent
+                                in_same_space = self._elements_share_space(element, other)
+                                if in_same_space:
+                                    if (element.GlobalId in adjacency_map and 
+                                        other.GlobalId not in adjacency_map[element.GlobalId]):
+                                        adjacency_map[element.GlobalId].append(other.GlobalId)
+                                        
+                                    if (other.GlobalId in adjacency_map and 
+                                        element.GlobalId not in adjacency_map[other.GlobalId]):
+                                        adjacency_map[other.GlobalId].append(element.GlobalId)
+                                        
+            else:
+                # Use topologic entities for adjacency detection
+                logger.info(f"Checking {len(entities_with_ids)} pairs of elements for adjacency")
+                
+                # Counter for logging
+                checked_pairs = 0
+                adjacent_found = 0
+                
+                # Check pairs of elements for adjacency
+                for i in range(len(entities_with_ids)):
+                    gid1, entity1 = entities_with_ids[i]
                     
-                    if isinstance(entity1, Cell) and isinstance(entity2, Cell):
-                        # Two cells are adjacent if they share a face
-                        shared_faces = Topology.SharedFaces(entity1, entity2, tolerance)
-                        is_adjacent = len(shared_faces) > 0
+                    for j in range(i+1, len(entities_with_ids)):
+                        gid2, entity2 = entities_with_ids[j]
                         
-                    elif isinstance(entity1, Cell) and isinstance(entity2, Face):
-                        # A cell and face are adjacent if the face bounds the cell
-                        faces = Topology.Faces(entity1)
-                        for face in faces:
-                            if Topology.IsSame(face, entity2, tolerance):
-                                is_adjacent = True
+                        checked_pairs += 1
+                        if checked_pairs % 1000 == 0:
+                            logger.info(f"Checked {checked_pairs} pairs, found {adjacent_found} adjacencies")
+                        
+                        # Skip if same element
+                        if gid1 == gid2:
+                            continue
+                        
+                        # Check adjacency based on topology type
+                        is_adjacent = False
+                        
+                        # Handle the case where entity1 or entity2 is a list
+                        entity1_list = [entity1] if not isinstance(entity1, list) else entity1
+                        entity2_list = [entity2] if not isinstance(entity2, list) else entity2
+                        
+                        # Check each combination
+                        for entity1_item in entity1_list:
+                            if is_adjacent:
                                 break
                                 
-                    elif isinstance(entity1, Face) and isinstance(entity2, Cell):
-                        # A face and cell are adjacent if the face bounds the cell
-                        faces = Topology.Faces(entity2)
-                        for face in faces:
-                            if Topology.IsSame(face, entity1, tolerance):
-                                is_adjacent = True
-                                break
-                                
-                    elif isinstance(entity1, Face) and isinstance(entity2, Face):
-                        # Two faces are adjacent if they share an edge
-                        shared_edges = Topology.SharedEdges(entity1, entity2, tolerance)
-                        is_adjacent = len(shared_edges) > 0
+                            for entity2_item in entity2_list:
+                                try:
+                                    if isinstance(entity1_item, Cell) and isinstance(entity2_item, Cell):
+                                        # Two cells are adjacent if they share a face
+                                        shared_faces = Topology.SharedFaces(entity1_item, entity2_item, tolerance)
+                                        is_adjacent = shared_faces and len(shared_faces) > 0
+                                        
+                                    elif isinstance(entity1_item, Cell) and isinstance(entity2_item, Face):
+                                        # A cell and face are adjacent if the face bounds the cell
+                                        faces = Topology.Faces(entity1_item)
+                                        for face in faces:
+                                            if Topology.IsSame(face, entity2_item, tolerance):
+                                                is_adjacent = True
+                                                break
+                                                
+                                    elif isinstance(entity1_item, Face) and isinstance(entity2_item, Cell):
+                                        # A face and cell are adjacent if the face bounds the cell
+                                        faces = Topology.Faces(entity2_item)
+                                        for face in faces:
+                                            if Topology.IsSame(face, entity1_item, tolerance):
+                                                is_adjacent = True
+                                                break
+                                                
+                                    elif isinstance(entity1_item, Face) and isinstance(entity2_item, Face):
+                                        # Two faces are adjacent if they share an edge
+                                        shared_edges = Topology.SharedEdges(entity1_item, entity2_item, tolerance)
+                                        is_adjacent = shared_edges and len(shared_edges) > 0
+                                        
+                                    elif isinstance(entity1_item, Edge) and isinstance(entity2_item, Edge):
+                                        # Two edges are adjacent if they share a vertex
+                                        shared_vertices = Topology.SharedVertices(entity1_item, entity2_item, tolerance)
+                                        is_adjacent = shared_vertices and len(shared_vertices) > 0
+                                        
+                                    elif isinstance(entity1_item, Edge) and (isinstance(entity2_item, Face) or isinstance(entity2_item, Cell)):
+                                        # An edge and face/cell are adjacent if the edge bounds the face/cell
+                                        edges = Topology.Edges(entity2_item)
+                                        for edge in edges:
+                                            if Topology.IsSame(edge, entity1_item, tolerance):
+                                                is_adjacent = True
+                                                break
+                                                
+                                    elif isinstance(entity2_item, Edge) and (isinstance(entity1_item, Face) or isinstance(entity1_item, Cell)):
+                                        # A face/cell and edge are adjacent if the edge bounds the face/cell
+                                        edges = Topology.Edges(entity1_item)
+                                        for edge in edges:
+                                            if Topology.IsSame(edge, entity2_item, tolerance):
+                                                is_adjacent = True
+                                                break
+                                                
+                                    if is_adjacent:
+                                        break
+                                        
+                                except Exception as adj_err:
+                                    logger.debug(f"Error checking adjacency between {gid1} and {gid2}: {str(adj_err)}")
+                                    continue
                         
-                    elif isinstance(entity1, Edge) and isinstance(entity2, Edge):
-                        # Two edges are adjacent if they share a vertex
-                        shared_vertices = Topology.SharedVertices(entity1, entity2, tolerance)
-                        is_adjacent = len(shared_vertices) > 0
+                        # Add to adjacency map if adjacent
+                        if is_adjacent:
+                            adjacent_found += 1
+                            adjacency_map[gid1].append(gid2)
+                            adjacency_map[gid2].append(gid1)
+                            logger.debug(f"Found adjacency between {gid1} and {gid2}")
+                
+                # Also check IFC relationships for adjacency (for elements like doors and windows)
+                logger.info("Checking IFC relationships for adjacency")
+                
+                for element in all_elements:
+                    if not hasattr(element, "GlobalId"):
+                        continue
                         
-                    elif isinstance(entity1, Edge) and (isinstance(entity2, Face) or isinstance(entity2, Cell)):
-                        # An edge and face/cell are adjacent if the edge bounds the face/cell
-                        edges = Topology.Edges(entity2)
-                        for edge in edges:
-                            if Topology.IsSame(edge, entity1, tolerance):
-                                is_adjacent = True
-                                break
-                                
-                    elif isinstance(entity2, Edge) and (isinstance(entity1, Face) or isinstance(entity1, Cell)):
-                        # A face/cell and edge are adjacent if the edge bounds the face/cell
-                        edges = Topology.Edges(entity1)
-                        for edge in edges:
-                            if Topology.IsSame(edge, entity2, tolerance):
-                                is_adjacent = True
-                                break
-                    
-                    # Add to adjacency map if adjacent
-                    if is_adjacent:
-                        adjacency_map[gid1].append(gid2)
-                        adjacency_map[gid2].append(gid1)
-                        
+                    # Doors and windows are adjacent to their containing walls
+                    if element.is_a("IfcDoor") or element.is_a("IfcWindow"):
+                        # Find the opening element
+                        opening = self._get_opening_for_element(element)
+                        if opening:
+                            # Find the wall containing the opening
+                            wall = self._get_element_for_opening(opening)
+                            if wall and hasattr(wall, "GlobalId"):
+                                # Add adjacency between door/window and wall
+                                if (element.GlobalId in adjacency_map and 
+                                    wall.GlobalId not in adjacency_map[element.GlobalId]):
+                                    adjacency_map[element.GlobalId].append(wall.GlobalId)
+                                    
+                                if (wall.GlobalId in adjacency_map and 
+                                    element.GlobalId not in adjacency_map[wall.GlobalId]):
+                                    adjacency_map[wall.GlobalId].append(element.GlobalId)
+                                    
+                                logger.debug(f"Found IFC adjacency between {element.is_a()} {element.GlobalId} and {wall.is_a()} {wall.GlobalId}")
+                
             # Cache the result
             self._adjacency_cache[tolerance] = adjacency_map
+            
+            # Log statistics
+            adjacency_count = sum(len(adjacent_ids) for adjacent_ids in adjacency_map.values())
+            logger.info(f"Found {adjacency_count} adjacency relationships between {len(adjacency_map)} elements")
             
         except Exception as e:
             logger.error(f"Error extracting adjacency relationships: {str(e)}")
             
         return adjacency_map
+    
+    def _elements_share_space(self, element1, element2) -> bool:
+        """
+        Check if two elements share the same space.
+        
+        Args:
+            element1: First IFC element
+            element2: Second IFC element
+            
+        Returns:
+            True if they share at least one space, False otherwise
+        """
+        # Get spaces for element1
+        spaces1 = set()
+        for rel in element1.ContainedInStructure if hasattr(element1, "ContainedInStructure") else []:
+            if hasattr(rel, "RelatingStructure") and rel.RelatingStructure.is_a("IfcSpace"):
+                spaces1.add(rel.RelatingStructure.GlobalId)
+                
+        # Get spaces for element2
+        spaces2 = set()
+        for rel in element2.ContainedInStructure if hasattr(element2, "ContainedInStructure") else []:
+            if hasattr(rel, "RelatingStructure") and rel.RelatingStructure.is_a("IfcSpace"):
+                spaces2.add(rel.RelatingStructure.GlobalId)
+                
+        # Check if they share at least one space
+        return bool(spaces1.intersection(spaces2))
+        
+    def _get_opening_for_element(self, element):
+        """
+        Get the opening element for a door or window.
+        
+        Args:
+            element: IFC door or window element
+            
+        Returns:
+            IFC opening element or None
+        """
+        if hasattr(element, "FillsVoids") and element.FillsVoids:
+            for rel in element.FillsVoids:
+                if hasattr(rel, "RelatingOpeningElement"):
+                    return rel.RelatingOpeningElement
+        return None
+        
+    def _get_element_for_opening(self, opening):
+        """
+        Get the element containing the opening.
+        
+        Args:
+            opening: IFC opening element
+            
+        Returns:
+            IFC element or None
+        """
+        if hasattr(opening, "VoidsElements") and opening.VoidsElements:
+            for rel in opening.VoidsElements:
+                if hasattr(rel, "RelatingBuildingElement"):
+                    return rel.RelatingBuildingElement
+        return None
     
     def get_containment_relationships(self, tolerance: float = 0.001) -> Dict[str, List[str]]:
         """
@@ -641,7 +802,6 @@ class TopologicAnalyzer:
         Returns:
             Dictionary mapping container GlobalIds to lists of contained GlobalIds
         """
-        self._check_topologicpy()
         self._check_parser()
         
         # Return cached result if available
@@ -651,92 +811,247 @@ class TopologicAnalyzer:
         containment_map = {}
         
         try:
-            # Get all IFC elements from the parser
-            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
-            all_elements = ifc_model.by_type("IfcElement")
-            
-            # Ensure all elements are converted to topologic entities
-            for element in all_elements:
-                if hasattr(element, "GlobalId") and element.GlobalId not in self.topologic_entities:
-                    self.convert_ifc_to_topologic(element)
-            
-            # Get all GlobalIds that were successfully converted
-            global_ids = list(self.topologic_entities.keys())
-            
-            # Create a list of entities with their GlobalIds
-            entities_with_ids = [(gid, self.topologic_entities[gid]) for gid in global_ids]
-            
-            # Initialize containment map for all elements
-            for gid in global_ids:
-                containment_map[gid] = []
-            
-            # Only cells can contain other entities
-            cell_entities = [(gid, entity) for gid, entity in entities_with_ids if isinstance(entity, Cell)]
-            
-            # Check pairs of elements for containment
-            for gid1, cell in cell_entities:
-                for gid2, entity in entities_with_ids:
-                    # Skip if same element
-                    if gid1 == gid2:
+            # If TopologicPy is available, use it for more accurate containment detection
+            if self._check_topologic_available():
+                logger.info("Using TopologicPy for containment relationship detection")
+                
+                # Get all topological entities
+                entities = self._get_topologic_entities()
+                
+                # Log the number of entities
+                logger.info(f"Checking containment relationships among {len(entities)} topological entities")
+                
+                # Initialize progress tracking
+                checked_pairs = 0
+                containment_found = 0
+                
+                # Check for containment between pairs of entities
+                for i, entity_data1 in enumerate(entities):
+                    entity1 = entity_data1.get("topology")
+                    entity1_id = entity_data1.get("id")
+                    entity1_type = entity_data1.get("type")
+                    
+                    # Skip non-container types
+                    if not entity1 or not entity1_id:
                         continue
                     
-                    # Check containment based on topology type
-                    is_contained = False
+                    # Only consider cells, cellcomplexes, or spaces as potential containers
+                    if not (isinstance(entity1, Cell) or 
+                            entity1_type in ["IfcSpace", "IfcBuilding", "IfcBuildingStorey"]):
+                        continue
                     
-                    if isinstance(entity, Cell):
-                        # A cell contains another cell if it's completely inside
-                        try:
-                            is_contained = Cell.Contains(cell, entity, tolerance)
-                        except Exception as e:
-                            logger.warning(f"Error checking if Cell contains Cell: {str(e)}")
-                            
-                    elif isinstance(entity, Face):
-                        # A cell contains a face if the face is inside the cell
-                        try:
-                            is_contained = Cell.Contains(cell, entity, tolerance)
-                        except Exception as e:
-                            logger.warning(f"Error checking if Cell contains Face: {str(e)}")
-                            
-                    elif isinstance(entity, Edge):
-                        # A cell contains an edge if the edge is inside the cell
-                        try:
-                            is_contained = Cell.Contains(cell, entity, tolerance)
-                        except Exception as e:
-                            logger.warning(f"Error checking if Cell contains Edge: {str(e)}")
+                    # Initialize entry for this container
+                    if entity1_id not in containment_map:
+                        containment_map[entity1_id] = []
                     
-                    # Add to containment map if contained
-                    if is_contained:
-                        containment_map[gid1].append(gid2)
+                    for j, entity_data2 in enumerate(entities):
+                        # Skip self-comparison
+                        if i == j:
+                            continue
+                            
+                        entity2 = entity_data2.get("topology")
+                        entity2_id = entity_data2.get("id")
+                        entity2_type = entity_data2.get("type")
+                        
+                        # Skip invalid entities
+                        if not entity2 or not entity2_id:
+                            continue
+                            
+                        # Skip if already found as contained
+                        if entity2_id in containment_map.get(entity1_id, []):
+                            continue
+                            
+                        # Skip if not physically containable
+                        if entity2_type in ["IfcBuilding", "IfcBuildingStorey", "IfcSite"]:
+                            continue
+                        
+                        checked_pairs += 1
+                        if checked_pairs % 1000 == 0:
+                            logger.info(f"Checked {checked_pairs} pairs, found {containment_found} containments")
+                        
+                        # Use direct IFC relationships for more reliable containment
+                        direct_containment = self._check_direct_containment(entity1_id, entity2_id)
+                        if direct_containment:
+                            if entity2_id not in containment_map[entity1_id]:
+                                containment_map[entity1_id].append(entity2_id)
+                                containment_found += 1
+                                logger.debug(f"Found direct containment: {entity1_id} contains {entity2_id}")
+                            continue
+                            
+                        try:
+                            # Topological containment check
+                            # Try to use Contains method if available
+                            if hasattr(entity1, "Contains") and callable(entity1.Contains):
+                                if entity1.Contains(entity2, tolerance):
+                                    if entity2_id not in containment_map[entity1_id]:
+                                        containment_map[entity1_id].append(entity2_id)
+                                        containment_found += 1
+                                        logger.debug(f"Found topological containment: {entity1_id} ({entity1_type}) contains {entity2_id} ({entity2_type})")
+                        except Exception as e:
+                            logger.debug(f"Error checking containment between {entity1_id} and {entity2_id}: {str(e)}")
             
-            # Also check IFC containment relationships
-            for element in all_elements:
-                if not hasattr(element, "GlobalId"):
-                    continue
+            # Fallback to IFC structure relationships if no or few containments found
+            if not containment_map or sum(len(contained) for contained in containment_map.values()) < 10:
+                logger.info("Few containment relationships found through topology, checking IFC relationships")
                 
-                # Check for spatial containment in IFC
-                container = None
-                try:
-                    # Try to find the direct container
-                    if hasattr(element, "ContainedInStructure") and element.ContainedInStructure:
-                        container = element.ContainedInStructure[0].RelatingStructure
+                # Check spatial structure containment
+                ifc_model = self.ifc_parser.file
+                
+                # Get all building storeys
+                storeys = ifc_model.by_type("IfcBuildingStorey")
+                for storey in storeys:
+                    if not hasattr(storey, "GlobalId"):
+                        continue
+                        
+                    storey_id = storey.GlobalId
                     
-                    # If we found a container with a GlobalId
-                    if container and hasattr(container, "GlobalId"):
-                        # Add IFC containment relationship if both elements are converted to topologic entities
-                        if (container.GlobalId in self.topologic_entities and 
-                            element.GlobalId in self.topologic_entities):
-                            if element.GlobalId not in containment_map[container.GlobalId]:
-                                containment_map[container.GlobalId].append(element.GlobalId)
-                except Exception as e:
-                    logger.warning(f"Error checking IFC containment for {element.GlobalId}: {str(e)}")
+                    # Initialize entry for this storey
+                    if storey_id not in containment_map:
+                        containment_map[storey_id] = []
+                    
+                    # Get elements contained in this storey
+                    for rel in storey.ContainsElements if hasattr(storey, "ContainsElements") else []:
+                        if not hasattr(rel, "RelatedElements"):
+                            continue
+                            
+                        for element in rel.RelatedElements:
+                            if not hasattr(element, "GlobalId"):
+                                continue
+                                
+                            element_id = element.GlobalId
+                            if element_id not in containment_map[storey_id]:
+                                containment_map[storey_id].append(element_id)
+                                logger.debug(f"Found IFC containment: {storey_id} contains {element_id}")
+                    
+                    # Get spaces contained in this storey
+                    for rel in storey.IsDecomposedBy if hasattr(storey, "IsDecomposedBy") else []:
+                        if not hasattr(rel, "RelatedObjects"):
+                            continue
+                            
+                        for space in rel.RelatedObjects:
+                            if not space.is_a("IfcSpace") or not hasattr(space, "GlobalId"):
+                                continue
+                                
+                            space_id = space.GlobalId
+                            if space_id not in containment_map[storey_id]:
+                                containment_map[storey_id].append(space_id)
+                                logger.debug(f"Found IFC containment: {storey_id} contains space {space_id}")
                 
+                # Get all spaces
+                spaces = ifc_model.by_type("IfcSpace")
+                for space in spaces:
+                    if not hasattr(space, "GlobalId"):
+                        continue
+                        
+                    space_id = space.GlobalId
+                    
+                    # Initialize entry for this space
+                    if space_id not in containment_map:
+                        containment_map[space_id] = []
+                    
+                    # Get elements contained in this space
+                    for rel in space.ContainsElements if hasattr(space, "ContainsElements") else []:
+                        if not hasattr(rel, "RelatedElements"):
+                            continue
+                            
+                        for element in rel.RelatedElements:
+                            if not hasattr(element, "GlobalId"):
+                                continue
+                                
+                            element_id = element.GlobalId
+                            if element_id not in containment_map[space_id]:
+                                containment_map[space_id].append(element_id)
+                                logger.debug(f"Found IFC containment: {space_id} contains {element_id}")
+            
             # Cache the result
+            if not self._containment_cache:
+                self._containment_cache = {}
+                
             self._containment_cache[tolerance] = containment_map
+            
+            # Log the number of relationships found
+            total_relationships = sum(len(contained) for contained in containment_map.values())
+            logger.info(f"Found {total_relationships} containment relationships")
             
         except Exception as e:
             logger.error(f"Error extracting containment relationships: {str(e)}")
             
         return containment_map
+        
+    def _check_direct_containment(self, container_id: str, element_id: str) -> bool:
+        """
+        Check if an element is directly contained within a container using IFC relationships.
+        
+        Args:
+            container_id: GlobalId of the potential container
+            element_id: GlobalId of the element to check
+            
+        Returns:
+            True if direct containment exists, False otherwise
+        """
+        ifc_model = self.ifc_parser.file
+        
+        try:
+            # Get the container element
+            container = self.ifc_parser.get_element_by_id(container_id)
+            if not container:
+                return False
+                
+            # Get the contained element
+            element = self.ifc_parser.get_element_by_id(element_id)
+            if not element:
+                return False
+            
+            # Check if container is a space
+            if container.is_a("IfcSpace"):
+                # Check space containment relationships
+                for rel in container.ContainsElements if hasattr(container, "ContainsElements") else []:
+                    if not hasattr(rel, "RelatedElements"):
+                        continue
+                        
+                    if element in rel.RelatedElements:
+                        return True
+            
+            # Check if container is a building storey
+            elif container.is_a("IfcBuildingStorey"):
+                # Check storey containment relationships
+                for rel in container.ContainsElements if hasattr(container, "ContainsElements") else []:
+                    if not hasattr(rel, "RelatedElements"):
+                        continue
+                        
+                    if element in rel.RelatedElements:
+                        return True
+                        
+                # Check if element is in a space that's in this storey
+                if element.is_a("IfcElement"):
+                    for rel in element.ContainedInStructure if hasattr(element, "ContainedInStructure") else []:
+                        if not hasattr(rel, "RelatingStructure"):
+                            continue
+                            
+                        space = rel.RelatingStructure
+                        if not space.is_a("IfcSpace"):
+                            continue
+                            
+                        # Check if this space is in the storey
+                        for space_rel in space.ContainedInStructure if hasattr(space, "ContainedInStructure") else []:
+                            if not hasattr(space_rel, "RelatingStructure"):
+                                continue
+                                
+                            if space_rel.RelatingStructure == container:
+                                return True
+            
+            # Generic containment check for any element type
+            if hasattr(element, "ContainedInStructure"):
+                for rel in element.ContainedInStructure:
+                    if (hasattr(rel, "RelatingStructure") and 
+                        hasattr(rel.RelatingStructure, "GlobalId") and 
+                        rel.RelatingStructure.GlobalId == container_id):
+                        return True
+            
+        except Exception as e:
+            logger.debug(f"Error checking direct containment: {str(e)}")
+            
+        return False
     
     def get_space_boundaries(self) -> Dict[str, List[str]]:
         """
@@ -850,279 +1165,251 @@ class TopologicAnalyzer:
         This includes adjacency, containment, and space boundary relationships.
         
         Returns:
-            Dictionary mapping GlobalIds to dictionaries of relationship types,
-            each containing lists of connected element data.
+            Dictionary with "nodes" and "edges" keys for representing the building connectivity network
         """
         self._check_parser()
         
+        # Return cached result if available
+        if self._connectivity_graph_cache:
+            return self._connectivity_graph_cache
+        
         # Initialize the connectivity graph
-        connectivity_graph = {}
+        connectivity_graph = {
+            "nodes": {},
+            "edges": []
+        }
         
         try:
-            # Get all IFC elements
-            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
-            all_elements = ifc_model.by_type("IfcElement")
+            # Get all elements from the IFC model
+            ifc_model = self.ifc_parser.file
+            all_elements = []
             
-            # Initialize the connectivity graph for each element
+            # Get elements by type
+            for element_type in ["IfcWall", "IfcSlab", "IfcBeam", "IfcColumn", "IfcDoor", 
+                                "IfcWindow", "IfcRoof", "IfcSpace", "IfcBuildingStorey"]:
+                all_elements.extend(ifc_model.by_type(element_type))
+            
+            # Add nodes to the graph (all IFC elements)
             for element in all_elements:
                 if not hasattr(element, "GlobalId"):
                     continue
                     
-                element_id = element.GlobalId
+                entity_id = element.GlobalId
+                entity_type = element.is_a()
                 
-                if element_id not in connectivity_graph:
-                    connectivity_graph[element_id] = {
-                        "adjacent": [],
-                        "contains": [],
-                        "contained_by": [],
-                        "bounds_space": [],
-                        "bounded_by": []
-                    }
+                # Get basic properties
+                properties = {
+                    "type": entity_type,
+                    "GlobalId": entity_id
+                }
+                
+                # Add name if available
+                if hasattr(element, "Name") and element.Name:
+                    properties["Name"] = element.Name
+                
+                # Add the node
+                connectivity_graph["nodes"][entity_id] = properties
             
-            # Get all necessary relationship maps
+            # Add relationships
+            # 1. Adjacency relationships
             adjacency_map = self.get_adjacency_relationships()
+            for source_id, target_ids in adjacency_map.items():
+                for target_id in target_ids:
+                    if source_id in connectivity_graph["nodes"] and target_id in connectivity_graph["nodes"]:
+                        edge = {
+                            "source": source_id,
+                            "target": target_id,
+                            "type": "ADJACENT_TO",
+                            "properties": {
+                                "relationshipType": "adjacency",
+                                "relationshipSource": "topologicalAnalysis"
+                            }
+                        }
+                        connectivity_graph["edges"].append(edge)
+            
+            # 2. Containment relationships
             containment_map = self.get_containment_relationships()
-            space_boundaries = self.get_space_boundaries()
-            
-            # Add adjacency relationships
-            for element_id, adjacent_ids in adjacency_map.items():
-                if element_id not in connectivity_graph:
-                    continue
-                    
-                for adjacent_id in adjacent_ids:
-                    if adjacent_id not in connectivity_graph:
-                        continue
-                        
-                    # Get the element type
-                    adjacent_element = self.ifc_parser.get_element_by_id(adjacent_id)
-                    if not adjacent_element:
-                        continue
-                        
-                    element_type = adjacent_element.is_a()
-                    
-                    # Add to connectivity graph
-                    connectivity_graph[element_id]["adjacent"].append({
-                        "id": adjacent_id,
-                        "type": element_type
-                    })
-            
-            # Add containment relationships
             for container_id, contained_ids in containment_map.items():
-                if container_id not in connectivity_graph:
-                    continue
-                    
                 for contained_id in contained_ids:
-                    if contained_id not in connectivity_graph:
-                        continue
+                    if container_id in connectivity_graph["nodes"] and contained_id in connectivity_graph["nodes"]:
+                        # Container to contained
+                        edge = {
+                            "source": container_id,
+                            "target": contained_id,
+                            "type": "CONTAINS",
+                            "properties": {
+                                "relationshipType": "containment",
+                                "relationshipSource": "topologicalAnalysis"
+                            }
+                        }
+                        connectivity_graph["edges"].append(edge)
                         
-                    # Get the element type
-                    contained_element = self.ifc_parser.get_element_by_id(contained_id)
-                    if not contained_element:
-                        continue
-                        
-                    element_type = contained_element.is_a()
-                    
-                    # Add to connectivity graph (container -> contained)
-                    connectivity_graph[container_id]["contains"].append({
-                        "id": contained_id,
-                        "type": element_type
-                    })
-                    
-                    # Add to connectivity graph (contained -> container)
-                    container_element = self.ifc_parser.get_element_by_id(container_id)
-                    if not container_element:
-                        continue
-                        
-                    container_type = container_element.is_a()
-                    
-                    connectivity_graph[contained_id]["contained_by"].append({
-                        "id": container_id,
-                        "type": container_type
-                    })
+                        # Contained to container (inverse)
+                        edge = {
+                            "source": contained_id,
+                            "target": container_id,
+                            "type": "CONTAINED_BY",
+                            "properties": {
+                                "relationshipType": "containment",
+                                "relationshipSource": "topologicalAnalysis"
+                            }
+                        }
+                        connectivity_graph["edges"].append(edge)
             
-            # Add space boundary relationships
-            for space_id, boundary_ids in space_boundaries.items():
-                if space_id not in connectivity_graph:
-                    continue
-                    
+            # 3. Space boundary relationships
+            boundary_map = self.get_space_boundaries()
+            for space_id, boundary_ids in boundary_map.items():
                 for boundary_id in boundary_ids:
-                    if boundary_id not in connectivity_graph:
-                        continue
+                    if space_id in connectivity_graph["nodes"] and boundary_id in connectivity_graph["nodes"]:
+                        # Space to boundary
+                        edge = {
+                            "source": space_id,
+                            "target": boundary_id,
+                            "type": "IS_BOUNDED_BY",
+                            "properties": {
+                                "relationshipType": "spaceBoundary",
+                                "boundaryType": "physical", 
+                                "relationshipSource": "topologicalAnalysis"
+                            }
+                        }
+                        connectivity_graph["edges"].append(edge)
                         
-                    # Get the element types
-                    space = self.ifc_parser.get_element_by_id(space_id)
-                    boundary = self.ifc_parser.get_element_by_id(boundary_id)
-                    
-                    if not space or not boundary:
-                        continue
-                        
-                    space_type = space.is_a()
-                    boundary_type = boundary.is_a()
-                    
-                    # Add to connectivity graph (space -> boundary)
-                    connectivity_graph[space_id]["bounded_by"].append({
-                        "id": boundary_id,
-                        "type": boundary_type
-                    })
-                    
-                    # Add to connectivity graph (boundary -> space)
-                    connectivity_graph[boundary_id]["bounds_space"].append({
-                        "id": space_id,
-                        "type": space_type
-                    })
+                        # Boundary to space (inverse)
+                        edge = {
+                            "source": boundary_id,
+                            "target": space_id,
+                            "type": "BOUNDS",
+                            "properties": {
+                                "relationshipType": "spaceBoundary",
+                                "boundaryType": "physical",
+                                "relationshipSource": "topologicalAnalysis"
+                            }
+                        }
+                        connectivity_graph["edges"].append(edge)
             
-            # Add direct connectivity through openings (doors, windows)
-            for element in all_elements:
-                if (not hasattr(element, "GlobalId") or 
-                    not element.is_a("IfcDoor") and not element.is_a("IfcWindow")):
-                    continue
-                    
-                element_id = element.GlobalId
-                
-                # Find spaces connected by this opening
-                connected_spaces = []
-                
-                for space_id, boundary_ids in space_boundaries.items():
-                    if element_id in boundary_ids:
-                        connected_spaces.append(space_id)
-                
-                # If this opening connects two spaces, add a direct connection between them
-                if len(connected_spaces) >= 2:
-                    for i in range(len(connected_spaces)):
-                        for j in range(i+1, len(connected_spaces)):
-                            space1_id = connected_spaces[i]
-                            space2_id = connected_spaces[j]
-                            
-                            if space1_id not in connectivity_graph or space2_id not in connectivity_graph:
-                                continue
-                                
-                            space1 = self.ifc_parser.get_element_by_id(space1_id)
-                            space2 = self.ifc_parser.get_element_by_id(space2_id)
-                            
-                            if not space1 or not space2:
-                                continue
-                                
-                            # Add connection in both directions
-                            # Space 1 -> Space 2
-                            connectivity_graph[space1_id]["adjacent"].append({
-                                "id": space2_id,
-                                "type": space2.is_a(),
-                                "via": element_id,
-                                "via_type": element.is_a()
-                            })
-                            
-                            # Space 2 -> Space 1
-                            connectivity_graph[space2_id]["adjacent"].append({
-                                "id": space1_id,
-                                "type": space1.is_a(),
-                                "via": element_id,
-                                "via_type": element.is_a()
-                            })
-        
+            # Cache the result
+            self._connectivity_graph_cache = connectivity_graph
+            
+            # Log statistics
+            logger.info(f"Created connectivity graph with {len(connectivity_graph['nodes'])} nodes and {len(connectivity_graph['edges'])} edges")
+            
         except Exception as e:
-            logger.error(f"Error generating connectivity graph: {str(e)}")
+            logger.error(f"Error creating connectivity graph: {str(e)}")
             
         return connectivity_graph
     
-    def find_path(self, start_id: str, end_id: str, 
-                  relationship_types: List[str] = None) -> List[Dict[str, Any]]:
+    def find_path(
+        self, 
+        start_id: str, 
+        end_id: str,
+        relationship_types: List[str] = None,
+        max_depth: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Find a path between two elements in the building model.
         
         Args:
-            start_id: GlobalId of the starting element
-            end_id: GlobalId of the target element
+            start_id: GlobalId of the start element
+            end_id: GlobalId of the end element
             relationship_types: List of relationship types to consider
-                               ["adjacent", "contains", "contained_by", "bounds_space", "bounded_by"]
-                               If None, all types are considered.
-                               
-        Returns:
-            A list of elements in the path, with their connections, or empty list if no path exists
-        """
-        # Default to all relationship types if none specified
-        if relationship_types is None:
-            relationship_types = ["adjacent", "contains", "contained_by", "bounds_space", "bounded_by"]
+                                (default: ADJACENT_TO, CONTAINS, CONTAINED_BY)
+            max_depth: Maximum search depth
             
+        Returns:
+            List of elements in the path, or empty list if no path was found
+        """
         # Get the connectivity graph
-        connectivity_graph = self.get_connectivity_graph()
+        graph = self.get_connectivity_graph()
         
-        # Check if start and end elements exist
-        if start_id not in connectivity_graph or end_id not in connectivity_graph:
+        # Check if both start and end elements exist in the graph
+        if (start_id not in graph["nodes"] or end_id not in graph["nodes"]):
+            logger.warning(f"Start or end element not found in graph: {start_id}, {end_id}")
             return []
             
-        # Breadth-first search
-        queue = [(start_id, [])]  # (current_node, path)
-        visited = set()
+        # Default relationship types if not provided
+        if not relationship_types:
+            relationship_types = ["ADJACENT_TO", "CONTAINS", "CONTAINED_BY", "IS_BOUNDED_BY", "BOUNDS"]
+            
+        # Build an adjacency list from the connectivity graph for BFS
+        adjacency_list = {}
+        
+        # Initialize adjacency list for all nodes
+        for node_id in graph["nodes"]:
+            adjacency_list[node_id] = []
+        
+        # Add connections based on edges with matching relationship types
+        for edge in graph["edges"]:
+            if edge["type"] in relationship_types:
+                source_id = edge["source"]
+                target_id = edge["target"]
+                
+                # Add connection with relationship info
+                if source_id in adjacency_list:
+                    adjacency_list[source_id].append({
+                        "id": target_id,
+                        "relationship": edge["type"],
+                        "properties": edge.get("properties", {})
+                    })
+        
+        # Breadth-first search to find the shortest path
+        visited = {start_id: None}  # Maps node to its predecessor in the path
+        queue = [(start_id, 0)]  # (node_id, depth)
         
         while queue:
-            current_id, path = queue.pop(0)
+            current_id, depth = queue.pop(0)
             
-            # Skip if already visited
-            if current_id in visited:
-                continue
+            # Check depth limit
+            if depth >= max_depth:
+                break
                 
-            # Mark as visited
-            visited.add(current_id)
-            
-            # Add to path
-            current_path = path + [current_id]
-            
-            # Check if reached target
+            # Check if we reached the target
             if current_id == end_id:
-                # Convert path of IDs to path of elements with connections
-                detailed_path = []
-                for i in range(len(current_path) - 1):
-                    from_id = current_path[i]
-                    to_id = current_path[i + 1]
-                    
-                    # Find the connection type
-                    connection_type = None
-                    connection_details = None
-                    
-                    for rel_type in relationship_types:
-                        for connection in connectivity_graph[from_id][rel_type]:
-                            if connection["id"] == to_id:
-                                connection_type = rel_type
-                                connection_details = connection
-                                break
-                                
-                        if connection_type:
-                            break
-                    
-                    # Get element details
-                    from_element = self.ifc_parser.get_element_by_id(from_id)
-                    from_type = from_element.is_a() if from_element else "Unknown"
-                    
-                    # Add to detailed path
-                    detailed_path.append({
-                        "id": from_id,
-                        "type": from_type,
-                        "connection": connection_type,
-                        "to": connection_details
-                    })
+                break
                 
-                # Add the final element
-                to_element = self.ifc_parser.get_element_by_id(end_id)
-                to_type = to_element.is_a() if to_element else "Unknown"
+            # Explore neighbors
+            for neighbor in adjacency_list[current_id]:
+                neighbor_id = neighbor["id"]
                 
-                detailed_path.append({
-                    "id": end_id,
-                    "type": to_type,
-                    "connection": None,
-                    "to": None
-                })
-                
-                return detailed_path
-            
-            # Add neighbors to queue
-            for rel_type in relationship_types:
-                for connection in connectivity_graph[current_id][rel_type]:
-                    neighbor_id = connection["id"]
-                    if neighbor_id not in visited:
-                        queue.append((neighbor_id, current_path))
+                if neighbor_id not in visited:
+                    visited[neighbor_id] = (current_id, neighbor["relationship"])
+                    queue.append((neighbor_id, depth + 1))
         
-        # No path found
-        return []
+        # If end node was not reached, no path exists
+        if end_id not in visited:
+            return []
+            
+        # Reconstruct the path
+        path = []
+        current_id = end_id
+        
+        while current_id != start_id:
+            # Get node data
+            node_data = graph["nodes"][current_id].copy()
+            
+            # Add the id to the data
+            node_data["id"] = current_id
+            
+            # Get the relationship from the predecessor
+            predecessor_info = visited[current_id]
+            if predecessor_info:
+                predecessor_id, relationship = predecessor_info
+                node_data["relationship_from_previous"] = relationship
+            
+            # Add to path (in reverse order)
+            path.append(node_data)
+            
+            # Move to predecessor
+            current_id = predecessor_info[0]
+        
+        # Add the start node
+        start_node_data = graph["nodes"][start_id].copy()
+        start_node_data["id"] = start_id
+        path.append(start_node_data)
+        
+        # Reverse to get path from start to end
+        path.reverse()
+        
+        return path
     
     def analyze_building_topology(self) -> Dict[str, Any]:
         """
@@ -1216,3 +1503,66 @@ class TopologicAnalyzer:
             logger.error(f"Error getting space boundaries from IFC: {str(e)}")
             
         return boundary_ids 
+
+    def _get_topologic_entities(self) -> List[Dict[str, Any]]:
+        """
+        Get all topologic entities with their metadata.
+        
+        Returns:
+            List of dictionaries containing entity data:
+            - id: GlobalId
+            - topology: TopologicPy entity
+            - type: IFC type
+            - properties: Dictionary of properties
+        """
+        self._check_parser()
+        
+        entities = []
+        
+        try:
+            # Get all IFC elements from the parser
+            ifc_model = self.ifc_parser.file
+            all_elements = ifc_model.by_type("IfcElement")
+            spaces = ifc_model.by_type("IfcSpace")
+            
+            # Combine elements and spaces
+            all_elements.extend(spaces)
+            
+            # Ensure all elements are converted to topologic entities
+            for element in all_elements:
+                if not hasattr(element, "GlobalId"):
+                    continue
+                    
+                element_id = element.GlobalId
+                
+                # Convert to topologic entity if not already converted
+                if element_id not in self.topologic_entities:
+                    self.convert_ifc_to_topologic(element)
+                
+                # Add to entities list if conversion was successful
+                if element_id in self.topologic_entities:
+                    entity_type = element.is_a()
+                    
+                    # Get basic properties
+                    properties = {
+                        "GlobalId": element_id,
+                        "IFCType": entity_type
+                    }
+                    
+                    # Add name if available
+                    if hasattr(element, "Name") and element.Name:
+                        properties["Name"] = element.Name
+                    
+                    entities.append({
+                        "id": element_id,
+                        "topology": self.topologic_entities[element_id],
+                        "type": entity_type,
+                        "properties": properties
+                    })
+            
+            logger.info(f"Found {len(entities)} topologic entities")
+            
+        except Exception as e:
+            logger.error(f"Error getting topologic entities: {str(e)}")
+            
+        return entities 

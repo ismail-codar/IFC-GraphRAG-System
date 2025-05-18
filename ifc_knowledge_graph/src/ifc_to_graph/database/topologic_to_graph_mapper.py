@@ -34,6 +34,41 @@ class TopologicToGraphMapper:
         """
         self.connector = connector
     
+    def clear_topological_relationships(self) -> bool:
+        """
+        Clear all topological relationships from the graph.
+        This is useful when reimporting relationships to avoid duplicates.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get all topological relationship types
+            topologic_rel_types = [
+                get_topologic_relationship_type("adjacent"),
+                get_topologic_relationship_type("contains"),
+                get_topologic_relationship_type("contained_by"),
+                get_topologic_relationship_type("bounds_space"),
+                get_topologic_relationship_type("bounded_by")
+            ]
+            
+            # Create a query to delete all topological relationships
+            rel_types_str = " | ".join([f":{rel_type}" for rel_type in topologic_rel_types])
+            query = f"""
+            MATCH (a)-[r {rel_types_str}]->(b)
+            WHERE r.relationshipSource = 'topologicalAnalysis'
+            DELETE r
+            """
+            
+            # Execute the query
+            self.connector.run_query(query)
+            logger.info("Cleared all topological relationships from the graph")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error clearing topological relationships: {str(e)}")
+            return False
+    
     def create_topologic_relationship(
         self,
         source_id: str,
@@ -77,14 +112,62 @@ class TopologicToGraphMapper:
             "props": formatted_props
         }
         
-        # Generate Cypher query with properties
-        query = f"""
-        MATCH (a), (b)
-        WHERE a.GlobalId = $source_id AND b.GlobalId = $target_id
-        MERGE (a)-[r:{rel_type}]->(b)
+        # First check if nodes exist and create them if they don't
+        check_query = """
+        MATCH (a)
+        WHERE a.GlobalId = $id
+        RETURN count(a) as count
+        """
+        
+        # Check source node
+        source_exists = False
+        try:
+            result = self.connector.run_query(check_query, {"id": source_id})
+            source_exists = result and result[0]["count"] > 0
+        except Exception as e:
+            logger.debug(f"Error checking source node: {str(e)}")
+            
+        # Check target node
+        target_exists = False
+        try:
+            result = self.connector.run_query(check_query, {"id": target_id})
+            target_exists = result and result[0]["count"] > 0
+        except Exception as e:
+            logger.debug(f"Error checking target node: {str(e)}")
+        
+        # Create nodes if they don't exist
+        if not source_exists:
+            create_query = """
+            CREATE (a:Element {GlobalId: $id})
+            RETURN a.GlobalId
+            """
+            try:
+                self.connector.run_query(create_query, {"id": source_id})
+                logger.debug(f"Created source node with ID {source_id}")
+            except Exception as e:
+                logger.error(f"Error creating source node: {str(e)}")
+                return False
+                
+        if not target_exists:
+            create_query = """
+            CREATE (a:Element {GlobalId: $id})
+            RETURN a.GlobalId
+            """
+            try:
+                self.connector.run_query(create_query, {"id": target_id})
+                logger.debug(f"Created target node with ID {target_id}")
+            except Exception as e:
+                logger.error(f"Error creating target node: {str(e)}")
+                return False
+        
+        # Use separate MATCH clauses to avoid cartesian product
+        query = """
+        MATCH (a {GlobalId: $source_id})
+        MATCH (b {GlobalId: $target_id})
+        MERGE (a)-[r:%s]->(b)
         SET r = $props
         RETURN type(r) as RelationType
-        """
+        """ % rel_type
         
         try:
             # Execute query
@@ -227,52 +310,106 @@ class TopologicToGraphMapper:
         Import the full connectivity graph from topological analysis into Neo4j.
         
         Args:
-            connectivity_graph: The connectivity graph with all relationships
+            connectivity_graph: The connectivity graph with "nodes" and "edges" keys
             
         Returns:
             Number of relationships created
         """
         created_count = 0
         
-        # Track created relationships to avoid duplicates
-        created_relationships = set()
+        # Check graph structure
+        if not connectivity_graph:
+            logger.warning("Empty connectivity graph provided")
+            return 0
+            
+        if not isinstance(connectivity_graph, dict):
+            logger.warning(f"Unexpected connectivity graph type: {type(connectivity_graph)}")
+            return 0
+            
+        # Handle new graph structure with nodes and edges
+        if "nodes" in connectivity_graph and "edges" in connectivity_graph:
+            # Track created relationships to avoid duplicates
+            created_relationships = set()
+            
+            # Process each edge in the graph
+            for edge in connectivity_graph["edges"]:
+                source_id = edge.get("source")
+                target_id = edge.get("target")
+                rel_type = edge.get("type")
+                
+                if not source_id or not target_id or not rel_type:
+                    logger.debug(f"Skipping invalid edge: {edge}")
+                    continue
+                
+                # Create a unique key for this relationship to avoid duplicates
+                rel_key = f"{source_id}_{rel_type}_{target_id}"
+                if rel_key in created_relationships:
+                    continue
+                
+                # Define properties for this relationship
+                properties = {
+                    "relationshipType": rel_type,
+                    "relationshipSource": "topologicalAnalysis"
+                }
+                
+                # Add any additional properties from the edge
+                edge_props = edge.get("properties", {})
+                for key, value in edge_props.items():
+                    properties[key] = value
+                
+                # Create the relationship
+                success = self.create_topologic_relationship(
+                    source_id,
+                    target_id,
+                    rel_type,
+                    properties
+                )
+                
+                if success:
+                    created_count += 1
+                    created_relationships.add(rel_key)
         
-        # Process each element and its connections
-        for source_id, connections in connectivity_graph.items():
-            for rel_type, rel_connections in connections.items():
-                for connection in rel_connections:
-                    target_id = connection.get("id")
-                    
-                    if not target_id:
-                        continue
-                    
-                    # Create a unique key for this relationship to avoid duplicates
-                    rel_key = f"{source_id}_{rel_type}_{target_id}"
-                    if rel_key in created_relationships:
-                        continue
-                    
-                    # Define properties for this relationship
-                    properties = {
-                        "relationshipType": rel_type,
-                        "targetType": connection.get("type", "Unknown")
-                    }
-                    
-                    # Add any additional properties from the connection
-                    for key, value in connection.items():
-                        if key not in ["id", "type"]:
-                            properties[key] = value
-                    
-                    # Create the relationship
-                    success = self.create_topologic_relationship(
-                        source_id,
-                        target_id,
-                        rel_type,
-                        properties
-                    )
-                    
-                    if success:
-                        created_count += 1
-                        created_relationships.add(rel_key)
+        # Handle old graph structure for backwards compatibility
+        elif isinstance(connectivity_graph, dict) and all(isinstance(v, dict) for v in connectivity_graph.values()):
+            # Track created relationships to avoid duplicates
+            created_relationships = set()
+            
+            # Process each element and its connections
+            for source_id, connections in connectivity_graph.items():
+                for rel_type, rel_connections in connections.items():
+                    for connection in rel_connections:
+                        target_id = connection.get("id")
+                        
+                        if not target_id:
+                            continue
+                        
+                        # Create a unique key for this relationship to avoid duplicates
+                        rel_key = f"{source_id}_{rel_type}_{target_id}"
+                        if rel_key in created_relationships:
+                            continue
+                        
+                        # Define properties for this relationship
+                        properties = {
+                            "relationshipType": rel_type,
+                            "targetType": connection.get("type", "Unknown")
+                        }
+                        
+                        # Add any additional properties from the connection
+                        for key, value in connection.items():
+                            if key not in ["id", "type"]:
+                                properties[key] = value
+                        
+                        # Create the relationship
+                        success = self.create_topologic_relationship(
+                            source_id,
+                            target_id,
+                            rel_type,
+                            properties
+                        )
+                        
+                        if success:
+                            created_count += 1
+                            created_relationships.add(rel_key)
         
         logger.info(f"Created {created_count} connectivity relationships in Neo4j")
         return created_count

@@ -126,7 +126,7 @@ This phase involves creating a complete pipeline for processing IFC files and lo
 - [ ] **Optimize Data Loading**
   - [x] Implement batch loading
   - [x] Add transaction management
-  - [ ] Optimize Cypher statements
+  - [x] Optimize Cypher statements
   - [ ] Add performance monitoring
   - [ ] Implement parallel processing where possible
 

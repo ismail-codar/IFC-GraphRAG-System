@@ -358,9 +358,19 @@ try:
                 graph = self.analyzer.get_connectivity_graph()
                 results["generation_time"] = time.time() - start_time
                 
-                # Count nodes and edges
-                results["nodes"] = len(graph.nodes)
-                results["edges"] = len(graph.edges)
+                # Count nodes and edges in the dictionary structure
+                if isinstance(graph, dict):
+                    if "nodes" in graph:
+                        results["nodes"] = len(graph["nodes"])
+                    if "edges" in graph:
+                        results["edges"] = len(graph["edges"])
+                else:
+                    # For backward compatibility with graph objects
+                    try:
+                        results["nodes"] = len(graph.nodes)
+                        results["edges"] = len(graph.edges)
+                    except AttributeError:
+                        logger.error("Unsupported graph structure returned by get_connectivity_graph()")
                 
                 logger.info(f"Generated connectivity graph with {results['nodes']} nodes and {results['edges']} edges")
                 logger.info(f"Generation time: {results['generation_time']:.4f}s")
