@@ -50,12 +50,12 @@ This phase focuses on establishing the foundation for processing IFC files and m
 
 ### Tasks:
 
-- [ ] **Create IFC Parser Module**
-  - [ ] Define IFC element extraction functions
-  - [ ] Create basic attribute extraction
-  - [ ] Implement relationship extraction
-  - [ ] Add spatial structure extraction 
-  - [ ] Add property set extraction
+- [x] **Create IFC Parser Module**
+  - [x] Define IFC element extraction functions
+  - [x] Create basic attribute extraction
+  - [x] Implement relationship extraction
+  - [x] Add spatial structure extraction 
+  - [x] Add property set extraction
 
 - [ ] **Define Neo4j Schema**
   - [ ] Create node labels based on IFC entity types
@@ -71,16 +71,16 @@ This phase focuses on establishing the foundation for processing IFC files and m
   - [ ] Create query templates
   - [ ] Add error handling and logging
 
-- [ ] **Build Simple CLI**
-  - [ ] Create entry point script
-  - [ ] Add command-line arguments parsing
-  - [ ] Implement basic logging
-  - [ ] Add progress feedback
+- [x] **Build Simple CLI**
+  - [x] Create entry point script
+  - [x] Add command-line arguments parsing
+  - [x] Implement basic logging
+  - [x] Add progress feedback
 
-- [ ] **Testing**
-  - [ ] Create unit tests for parser
+- [x] **Testing**
+  - [x] Create unit tests for parser
   - [ ] Create tests for database operations
-  - [ ] Add test IFC files
+  - [x] Add test IFC files
   - [ ] Implement basic validation
 
 ## Phase 2: Topological Analysis and Enhancement

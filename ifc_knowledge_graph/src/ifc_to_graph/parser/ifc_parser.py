@@ -177,8 +177,91 @@ class IfcParser:
         Returns:
             Dictionary representing the building spatial structure
         """
-        # To be implemented
-        return {}
+        if self._spatial_structure_cache:
+            return self._spatial_structure_cache
+        
+        structure = {
+            "project": {},
+            "sites": [],
+            "buildings": [],
+            "storeys": [],
+            "spaces": []
+        }
+        
+        try:
+            # Get project
+            projects = self.file.by_type("IfcProject")
+            if projects:
+                project = projects[0]
+                structure["project"] = {
+                    "GlobalId": project.GlobalId,
+                    "Name": project.Name if project.Name else "Unnamed Project",
+                    "Description": project.Description if project.Description else ""
+                }
+                
+                # Navigate down the spatial structure using decomposition relationships
+                for rel in project.IsDecomposedBy:
+                    for site in rel.RelatedObjects:
+                        if site.is_a("IfcSite"):
+                            site_data = {
+                                "GlobalId": site.GlobalId,
+                                "Name": site.Name if site.Name else "Unnamed Site",
+                                "Description": site.Description if site.Description else "",
+                                "Buildings": []
+                            }
+                            
+                            # Get buildings in the site
+                            for site_rel in site.IsDecomposedBy:
+                                for building in site_rel.RelatedObjects:
+                                    if building.is_a("IfcBuilding"):
+                                        building_data = {
+                                            "GlobalId": building.GlobalId,
+                                            "Name": building.Name if building.Name else "Unnamed Building",
+                                            "Description": building.Description if building.Description else "",
+                                            "Storeys": []
+                                        }
+                                        
+                                        # Get storeys in the building
+                                        for building_rel in building.IsDecomposedBy:
+                                            for storey in building_rel.RelatedObjects:
+                                                if storey.is_a("IfcBuildingStorey"):
+                                                    storey_data = {
+                                                        "GlobalId": storey.GlobalId,
+                                                        "Name": storey.Name if storey.Name else "Unnamed Storey",
+                                                        "Description": storey.Description if storey.Description else "",
+                                                        "Elevation": storey.Elevation if hasattr(storey, "Elevation") else None,
+                                                        "Spaces": []
+                                                    }
+                                                    
+                                                    # Get spaces in the storey
+                                                    space_elements = []
+                                                    for storey_rel in storey.ContainsElements:
+                                                        space_elements.extend([e for e in storey_rel.RelatedElements if e.is_a("IfcSpace")])
+                                                    
+                                                    for space in space_elements:
+                                                        space_data = {
+                                                            "GlobalId": space.GlobalId,
+                                                            "Name": space.Name if space.Name else "Unnamed Space",
+                                                            "Description": space.Description if space.Description else "",
+                                                            "LongName": space.LongName if hasattr(space, "LongName") else "",
+                                                        }
+                                                        storey_data["Spaces"].append(space_data)
+                                                        structure["spaces"].append(space_data)
+                                                    
+                                                    building_data["Storeys"].append(storey_data)
+                                                    structure["storeys"].append(storey_data)
+                                        
+                                        site_data["Buildings"].append(building_data)
+                                        structure["buildings"].append(building_data)
+                            
+                            structure["sites"].append(site_data)
+            
+            self._spatial_structure_cache = structure
+            
+        except Exception as e:
+            logger.error(f"Error extracting spatial structure: {str(e)}")
+        
+        return structure
     
     def get_relationships(self, element: Any) -> Dict[str, List[Any]]:
         """
@@ -190,8 +273,147 @@ class IfcParser:
         Returns:
             Dictionary mapping relationship types to related elements
         """
-        # To be implemented
-        return {}
+        if not element:
+            return {}
+            
+        element_id = element.GlobalId
+        
+        # Check if relationships for this element are already cached
+        if element_id in self._relationships_cache:
+            return self._relationships_cache[element_id]
+            
+        relationships = {
+            "ContainedIn": [],          # Spatial containment relationships
+            "HostedBy": [],             # Hosted by relationships (e.g., window in a wall)
+            "Decomposes": [],           # Part of a larger element
+            "HasOpenings": [],          # Openings in walls for doors/windows
+            "IsConnectedTo": [],        # Connected elements
+            "HasAssociations": [],      # Material associations, etc.
+            "HasPropertySets": []       # Property sets
+        }
+        
+        try:
+            # Get containment relationships (elements to spatial structure)
+            for rel in self.file.by_type("IfcRelContainedInSpatialStructure"):
+                if element in rel.RelatedElements:
+                    relationships["ContainedIn"].append({
+                        "RelationType": "ContainedIn",
+                        "RelatingObject": rel.RelatingStructure,
+                        "RelatingObjectId": rel.RelatingStructure.GlobalId,
+                        "RelatingObjectType": rel.RelatingStructure.is_a()
+                    })
+            
+            # Get decomposition relationships (element is part of a larger element)
+            for rel in self.file.by_type("IfcRelAggregates"):
+                if element == rel.RelatingObject:
+                    # This element has parts
+                    for part in rel.RelatedObjects:
+                        relationships["Decomposes"].append({
+                            "RelationType": "HasParts",
+                            "RelatedObject": part,
+                            "RelatedObjectId": part.GlobalId,
+                            "RelatedObjectType": part.is_a()
+                        })
+                elif element in rel.RelatedObjects:
+                    # This element is part of another element
+                    relationships["Decomposes"].append({
+                        "RelationType": "IsPartOf",
+                        "RelatingObject": rel.RelatingObject,
+                        "RelatingObjectId": rel.RelatingObject.GlobalId,
+                        "RelatingObjectType": rel.RelatingObject.is_a()
+                    })
+            
+            # Get opening relationships (wall has openings for doors/windows)
+            if element.is_a() in ["IfcWall", "IfcWallStandardCase"]:
+                for rel in self.file.by_type("IfcRelVoidsElement"):
+                    if element == rel.RelatingBuildingElement:
+                        opening = rel.RelatedOpeningElement
+                        # Find elements that fill this opening
+                        for fill_rel in self.file.by_type("IfcRelFillsElement"):
+                            if opening == fill_rel.RelatingOpeningElement:
+                                filling_element = fill_rel.RelatedBuildingElement
+                                relationships["HasOpenings"].append({
+                                    "RelationType": "HasOpening",
+                                    "RelatedObject": filling_element,
+                                    "RelatedObjectId": filling_element.GlobalId,
+                                    "RelatedObjectType": filling_element.is_a()
+                                })
+            
+            # Get "fills opening" relationships (door/window in a wall opening)
+            if element.is_a() in ["IfcDoor", "IfcWindow"]:
+                for rel in self.file.by_type("IfcRelFillsElement"):
+                    if element == rel.RelatedBuildingElement:
+                        opening = rel.RelatingOpeningElement
+                        # Find the element that is voided by this opening
+                        for void_rel in self.file.by_type("IfcRelVoidsElement"):
+                            if opening == void_rel.RelatedOpeningElement:
+                                host_element = void_rel.RelatingBuildingElement
+                                relationships["HostedBy"].append({
+                                    "RelationType": "HostedBy",
+                                    "RelatingObject": host_element,
+                                    "RelatingObjectId": host_element.GlobalId,
+                                    "RelatingObjectType": host_element.is_a()
+                                })
+            
+            # Get material associations
+            for rel in self.file.by_type("IfcRelAssociatesMaterial"):
+                if element in rel.RelatedObjects:
+                    material = rel.RelatingMaterial
+                    material_type = material.is_a()
+                    
+                    if material_type == "IfcMaterial":
+                        relationships["HasAssociations"].append({
+                            "RelationType": "HasMaterial",
+                            "RelatingObject": material,
+                            "MaterialName": material.Name,
+                            "MaterialType": "Single"
+                        })
+                    elif material_type == "IfcMaterialList":
+                        materials = []
+                        for mat in material.Materials:
+                            materials.append({
+                                "MaterialName": mat.Name,
+                                "MaterialId": mat.id()
+                            })
+                        relationships["HasAssociations"].append({
+                            "RelationType": "HasMaterials",
+                            "Materials": materials,
+                            "MaterialType": "List"
+                        })
+                    elif material_type == "IfcMaterialLayerSetUsage":
+                        layer_set = material.ForLayerSet
+                        materials = []
+                        for i, layer in enumerate(layer_set.MaterialLayers):
+                            materials.append({
+                                "MaterialName": layer.Material.Name if layer.Material else "Unknown",
+                                "MaterialId": layer.Material.id() if layer.Material else None,
+                                "LayerThickness": layer.LayerThickness,
+                                "LayerPosition": i
+                            })
+                        relationships["HasAssociations"].append({
+                            "RelationType": "HasMaterialLayers",
+                            "Materials": materials,
+                            "MaterialType": "LayerSet"
+                        })
+            
+            # Get property sets
+            for definition in self.file.by_type("IfcRelDefinesByProperties"):
+                if element in definition.RelatedObjects:
+                    prop_set = definition.RelatingPropertyDefinition
+                    if prop_set.is_a("IfcPropertySet"):
+                        relationships["HasPropertySets"].append({
+                            "RelationType": "HasPropertySet",
+                            "PropertySetName": prop_set.Name,
+                            "PropertySetId": prop_set.id()
+                        })
+            
+            # Cache the results
+            self._relationships_cache[element_id] = relationships
+            
+        except Exception as e:
+            logger.error(f"Error extracting relationships for element {element_id}: {str(e)}")
+        
+        return relationships
     
     def get_property_sets(self, element: Any) -> Dict[str, Dict[str, Any]]:
         """
@@ -203,8 +425,142 @@ class IfcParser:
         Returns:
             Dictionary mapping property set names to property dictionaries
         """
-        # To be implemented
-        return {}
+        if not element:
+            return {}
+            
+        element_id = element.GlobalId
+        
+        # Check if property sets for this element are already cached
+        if element_id in self._property_sets_cache:
+            return self._property_sets_cache[element_id]
+            
+        property_sets = {}
+        
+        try:
+            # Get related property sets through IfcRelDefinesByProperties
+            for rel in self.file.by_type("IfcRelDefinesByProperties"):
+                if element in rel.RelatedObjects:
+                    prop_def = rel.RelatingPropertyDefinition
+                    
+                    # Handle different property definition types
+                    if prop_def.is_a("IfcPropertySet"):
+                        # Standard property set
+                        prop_set_name = prop_def.Name
+                        properties = {}
+                        
+                        for prop in prop_def.HasProperties:
+                            if prop.is_a("IfcPropertySingleValue"):
+                                # Simple properties with a single value
+                                if prop.NominalValue:
+                                    # Extract the actual value depending on its type
+                                    value = self._extract_value(prop.NominalValue)
+                                    properties[prop.Name] = {
+                                        "value": value,
+                                        "type": prop.NominalValue.is_a()
+                                    }
+                                else:
+                                    properties[prop.Name] = {
+                                        "value": None,
+                                        "type": "None"
+                                    }
+                            elif prop.is_a("IfcComplexProperty"):
+                                # Complex properties containing sub-properties
+                                complex_props = {}
+                                for sub_prop in prop.HasProperties:
+                                    if hasattr(sub_prop, "NominalValue") and sub_prop.NominalValue:
+                                        value = self._extract_value(sub_prop.NominalValue)
+                                        complex_props[sub_prop.Name] = {
+                                            "value": value,
+                                            "type": sub_prop.NominalValue.is_a()
+                                        }
+                                properties[prop.Name] = {
+                                    "value": complex_props,
+                                    "type": "Complex"
+                                }
+                                
+                        property_sets[prop_set_name] = properties
+                    
+                    elif prop_def.is_a("IfcElementQuantity"):
+                        # Quantity sets
+                        quantity_set_name = prop_def.Name
+                        quantities = {}
+                        
+                        for quantity in prop_def.Quantities:
+                            if quantity.is_a("IfcQuantityLength"):
+                                quantities[quantity.Name] = {
+                                    "value": quantity.LengthValue,
+                                    "type": "Length",
+                                    "unit": "m"  # Default IFC unit for length
+                                }
+                            elif quantity.is_a("IfcQuantityArea"):
+                                quantities[quantity.Name] = {
+                                    "value": quantity.AreaValue,
+                                    "type": "Area",
+                                    "unit": "m²"  # Default IFC unit for area
+                                }
+                            elif quantity.is_a("IfcQuantityVolume"):
+                                quantities[quantity.Name] = {
+                                    "value": quantity.VolumeValue,
+                                    "type": "Volume",
+                                    "unit": "m³"  # Default IFC unit for volume
+                                }
+                            elif quantity.is_a("IfcQuantityCount"):
+                                quantities[quantity.Name] = {
+                                    "value": quantity.CountValue,
+                                    "type": "Count",
+                                    "unit": "units"
+                                }
+                            elif quantity.is_a("IfcQuantityWeight"):
+                                quantities[quantity.Name] = {
+                                    "value": quantity.WeightValue,
+                                    "type": "Weight",
+                                    "unit": "kg"  # Default IFC unit for weight
+                                }
+                        
+                        property_sets[quantity_set_name] = quantities
+            
+            # Cache the results
+            self._property_sets_cache[element_id] = property_sets
+                
+        except Exception as e:
+            logger.error(f"Error extracting property sets for element {element_id}: {str(e)}")
+        
+        return property_sets
+    
+    def _extract_value(self, nominal_value: Any) -> Any:
+        """
+        Extract the actual value from an IFC value entity.
+        
+        Args:
+            nominal_value: The IFC value entity
+            
+        Returns:
+            The extracted value in Python native type
+        """
+        if nominal_value.is_a("IfcLabel") or nominal_value.is_a("IfcText") or nominal_value.is_a("IfcIdentifier"):
+            return nominal_value.wrappedValue
+        elif nominal_value.is_a("IfcInteger") or nominal_value.is_a("IfcCountMeasure"):
+            return int(nominal_value.wrappedValue)
+        elif nominal_value.is_a("IfcReal") or nominal_value.is_a("IfcLengthMeasure") or \
+             nominal_value.is_a("IfcAreaMeasure") or nominal_value.is_a("IfcVolumeMeasure") or \
+             nominal_value.is_a("IfcPositiveLengthMeasure") or nominal_value.is_a("IfcMassMeasure") or \
+             nominal_value.is_a("IfcRatioMeasure") or nominal_value.is_a("IfcThermalTransmittanceMeasure"):
+            return float(nominal_value.wrappedValue)
+        elif nominal_value.is_a("IfcBoolean"):
+            return nominal_value.wrappedValue
+        elif nominal_value.is_a("IfcLogical"):
+            if nominal_value.wrappedValue == ".T.":
+                return True
+            elif nominal_value.wrappedValue == ".F.":
+                return False
+            else:
+                return None
+        else:
+            # For other types, just return the wrapped value
+            if hasattr(nominal_value, "wrappedValue"):
+                return nominal_value.wrappedValue
+            else:
+                return str(nominal_value)
     
     def extract_material_info(self, element: Any) -> List[Dict[str, Any]]:
         """
@@ -216,5 +572,63 @@ class IfcParser:
         Returns:
             List of dictionaries with material information
         """
-        # To be implemented
-        return [] 
+        materials = []
+        
+        try:
+            for rel in self.file.by_type("IfcRelAssociatesMaterial"):
+                if element in rel.RelatedObjects:
+                    material = rel.RelatingMaterial
+                    
+                    if material.is_a("IfcMaterial"):
+                        # Single material
+                        materials.append({
+                            "name": material.Name,
+                            "type": "Single",
+                            "id": material.id()
+                        })
+                    
+                    elif material.is_a("IfcMaterialList"):
+                        # Material list (multiple materials)
+                        for mat in material.Materials:
+                            materials.append({
+                                "name": mat.Name,
+                                "type": "List",
+                                "id": mat.id()
+                            })
+                    
+                    elif material.is_a("IfcMaterialLayerSetUsage"):
+                        # Material layers with specific usage (e.g., wall layers)
+                        layer_set = material.ForLayerSet
+                        
+                        # Get the orientation information
+                        dir_sense = material.DirectionSense
+                        
+                        for i, layer in enumerate(layer_set.MaterialLayers):
+                            if layer.Material:
+                                materials.append({
+                                    "name": layer.Material.Name,
+                                    "type": "Layer",
+                                    "id": layer.Material.id(),
+                                    "thickness": layer.LayerThickness,
+                                    "position": i,
+                                    "direction_sense": dir_sense,
+                                    "is_ventilated": layer.IsVentilated if hasattr(layer, "IsVentilated") else None
+                                })
+                    
+                    elif material.is_a("IfcMaterialLayerSet"):
+                        # Material layer set without usage information
+                        for i, layer in enumerate(material.MaterialLayers):
+                            if layer.Material:
+                                materials.append({
+                                    "name": layer.Material.Name,
+                                    "type": "Layer",
+                                    "id": layer.Material.id(),
+                                    "thickness": layer.LayerThickness,
+                                    "position": i,
+                                    "is_ventilated": layer.IsVentilated if hasattr(layer, "IsVentilated") else None
+                                })
+        
+        except Exception as e:
+            logger.error(f"Error extracting material info for element {element.GlobalId if element else None}: {str(e)}")
+        
+        return materials 
