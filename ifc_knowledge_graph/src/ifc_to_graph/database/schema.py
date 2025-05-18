@@ -33,6 +33,11 @@ class NodeLabels(Enum):
     PROPERTY_SET = "PropertySet"
     PROPERTY = "Property"
     TYPE = "Type"
+    # Topological entity labels - used for advanced querying
+    CELL = "Cell"
+    FACE = "Face"
+    EDGE = "Edge"
+    VERTEX = "Vertex"
     
     # Map IFC entity types to node labels
     @classmethod
@@ -74,6 +79,14 @@ class RelationshipTypes(Enum):
     FILLS = "FILLS"  # Door/window fills opening
     ADJACENT_TO = "ADJACENT_TO"  # Adjacent elements
     GROUPS = "GROUPS"  # Element grouping
+    # Topological relationship types
+    ADJACENT = "ADJACENT"  # Adjacency relationship detected by topology
+    CONTAINS_TOPOLOGICALLY = "CONTAINS_TOPOLOGICALLY"  # Spatial containment detected by topology
+    IS_CONTAINED_IN = "IS_CONTAINED_IN"  # Inverse of CONTAINS_TOPOLOGICALLY
+    BOUNDS_SPACE = "BOUNDS_SPACE"  # Element bounds a space
+    IS_BOUNDED_BY = "IS_BOUNDED_BY"  # Space is bounded by an element
+    CONNECTS_SPACES = "CONNECTS_SPACES"  # Element (e.g., door) connects spaces
+    PATH_TO = "PATH_TO"  # Path relationship (with steps as properties)
     
     # Map IFC relationship types to graph relationship types
     @classmethod
@@ -92,6 +105,18 @@ class RelationshipTypes(Enum):
             "IfcRelAssigns": cls.GROUPS,
         }
         return mapping.get(relationship_type, cls.CONNECTED_TO)
+    
+    @classmethod
+    def from_topologic_relationship(cls, topology_relationship: str) -> 'RelationshipTypes':
+        """Map a topological relationship to a graph relationship type."""
+        mapping = {
+            "adjacent": cls.ADJACENT,
+            "contains": cls.CONTAINS_TOPOLOGICALLY,
+            "contained_by": cls.IS_CONTAINED_IN,
+            "bounds_space": cls.BOUNDS_SPACE,
+            "bounded_by": cls.IS_BOUNDED_BY,
+        }
+        return mapping.get(topology_relationship, cls.CONNECTED_TO)
 
 
 class SchemaManager:
@@ -170,6 +195,11 @@ class SchemaManager:
         # Index on Property Name
         """
         CREATE INDEX IF NOT EXISTS FOR (p:Property) ON (p.Name)
+        """,
+        
+        # Index for faster topological relationship queries
+        """
+        CREATE INDEX IF NOT EXISTS FOR (e:Element) ON (e.topologicEntity)
         """
     ]
     
@@ -249,6 +279,39 @@ PROPERTY_MAPPING = {
     "ElementType": "elementType",
 }
 
+# Dictionary of topological relationship properties
+TOPOLOGICAL_PROPERTIES = {
+    "ADJACENT": [
+        "distanceTolerance",
+        "sharedFaceCount",
+        "sharedEdgeCount",
+        "sharedVertexCount",
+        "contactArea"
+    ],
+    "CONTAINS_TOPOLOGICALLY": [
+        "distanceTolerance",
+        "volume",
+        "containmentType"  # full or partial
+    ],
+    "BOUNDS_SPACE": [
+        "boundaryType",  # physical, virtual, etc.
+        "area",
+        "normalVector"
+    ],
+    "CONNECTS_SPACES": [
+        "connectionType",  # door, window, opening
+        "isPassable",
+        "width",
+        "height"
+    ],
+    "PATH_TO": [
+        "pathLength",
+        "stepCount",
+        "pathType",
+        "isAccessible"
+    ]
+}
+
 
 def get_node_labels(ifc_type: str) -> List[str]:
     """
@@ -294,6 +357,19 @@ def get_relationship_type(ifc_relationship_type: str) -> str:
         Neo4j relationship type
     """
     return RelationshipTypes.from_ifc_relationship(ifc_relationship_type).value
+
+
+def get_topologic_relationship_type(topology_relationship: str) -> str:
+    """
+    Get the appropriate Neo4j relationship type for a topological relationship.
+    
+    Args:
+        topology_relationship: Topological relationship type string
+        
+    Returns:
+        Neo4j relationship type
+    """
+    return RelationshipTypes.from_topologic_relationship(topology_relationship).value
 
 
 def format_property_value(value: Any) -> Any:
