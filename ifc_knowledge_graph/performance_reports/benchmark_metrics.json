@@ -1,0 +1,5637 @@
+{
+  "system_info": {
+    "platform": "Windows-11-10.0.26100-SP0",
+    "processor": "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD",
+    "python_version": "3.12.3",
+    "cpu_count": 16,
+    "physical_cpu_count": 8,
+    "memory_total": 34276311040
+  },
+  "metrics": [
+    {
+      "name": "database_connection_duration",
+      "value": 2061.5100860595703,
+      "unit": "ms",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "uri": "bolt://localhost:7687"
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.67578125,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "RETURN 1 AS test"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "RETURN 1 AS test"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_text": "RETURN 1 AS test",
+        "parameter_count": 0
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 1,
+      "unit": "records",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_text": "RETURN 1 AS test",
+        "parameter_count": 0,
+        "record_count": 1
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.70703125,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_text": "RETURN 1 AS test",
+        "parameter_count": 0,
+        "record_count": 1
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_text": "RETURN 1 AS test",
+        "parameter_count": 0,
+        "record_count": 1
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {}
+    },
+    {
+      "name": "startup_memory_rss",
+      "value": 100.7109375,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {}
+    },
+    {
+      "name": "startup_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {}
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.7109375,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n        UNWIND range(1, $size) AS i\n        CREATE (n:BenchmarkNode {id: i, value: rand(), timestam"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.206493,
+      "datetime": "2025-05-18T18:29:11.206493",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n        UNWIND range(1, $size) AS i\n        CREATE (n:BenchmarkNode {id: i, value: rand(), timestam"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 92.00716018676758,
+      "unit": "ms",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {
+        "query_text": "\n        UNWIND range(1, $size) AS i\n        CREATE (n:BenchmarkNode {id: i, value: rand(), timestamp: timestamp()})\n        RETURN count(n) AS created\n        ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 1,
+      "unit": "records",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {
+        "query_text": "\n        UNWIND range(1, $size) AS i\n        CREATE (n:BenchmarkNode {id: i, value: rand(), timestamp: timestamp()})\n        RETURN count(n) AS created\n        ",
+        "parameter_count": 1,
+        "record_count": 1
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.72265625,
+      "unit": "MB",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {
+        "query_text": "\n        UNWIND range(1, $size) AS i\n        CREATE (n:BenchmarkNode {id: i, value: rand(), timestamp: timestamp()})\n        RETURN count(n) AS created\n        ",
+        "parameter_count": 1,
+        "record_count": 1
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {
+        "query_text": "\n        UNWIND range(1, $size) AS i\n        CREATE (n:BenchmarkNode {id: i, value: rand(), timestamp: timestamp()})\n        RETURN count(n) AS created\n        ",
+        "parameter_count": 1,
+        "record_count": 1
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 92.00716018676758,
+      "unit": "ms",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {}
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.72265625,
+      "unit": "MB",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.2985,
+      "datetime": "2025-05-18T18:29:11.298500",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 93.67585182189941,
+      "unit": "ms",
+      "timestamp": 1747585751.392176,
+      "datetime": "2025-05-18T18:29:11.392176",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585751.392176,
+      "datetime": "2025-05-18T18:29:11.392176",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.74609375,
+      "unit": "MB",
+      "timestamp": 1747585751.392176,
+      "datetime": "2025-05-18T18:29:11.392176",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.392176,
+      "datetime": "2025-05-18T18:29:11.392176",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 93.67585182189941,
+      "unit": "ms",
+      "timestamp": 1747585751.392176,
+      "datetime": "2025-05-18T18:29:11.392176",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 93.67585182189941,
+      "unit": "ms",
+      "timestamp": 1747585751.392176,
+      "datetime": "2025-05-18T18:29:11.392176",
+      "context": {
+        "iteration": 0,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.74609375,
+      "unit": "MB",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.75390625,
+      "unit": "MB",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.4947817,
+      "datetime": "2025-05-18T18:29:11.494782",
+      "context": {
+        "iteration": 1,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.75390625,
+      "unit": "MB",
+      "timestamp": 1747585751.5983863,
+      "datetime": "2025-05-18T18:29:11.598386",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.5983863,
+      "datetime": "2025-05-18T18:29:11.598386",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 2.5446414947509766,
+      "unit": "ms",
+      "timestamp": 1747585751.600931,
+      "datetime": "2025-05-18T18:29:11.600931",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585751.600931,
+      "datetime": "2025-05-18T18:29:11.600931",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.7578125,
+      "unit": "MB",
+      "timestamp": 1747585751.600931,
+      "datetime": "2025-05-18T18:29:11.600931",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.600931,
+      "datetime": "2025-05-18T18:29:11.600931",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 2.5446414947509766,
+      "unit": "ms",
+      "timestamp": 1747585751.600931,
+      "datetime": "2025-05-18T18:29:11.600931",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 2.5446414947509766,
+      "unit": "ms",
+      "timestamp": 1747585751.600931,
+      "datetime": "2025-05-18T18:29:11.600931",
+      "context": {
+        "iteration": 2,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.76171875,
+      "unit": "MB",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.7734375,
+      "unit": "MB",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.7017117,
+      "datetime": "2025-05-18T18:29:11.701712",
+      "context": {
+        "iteration": 3,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.7734375,
+      "unit": "MB",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.78515625,
+      "unit": "MB",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.804508,
+      "datetime": "2025-05-18T18:29:11.804508",
+      "context": {
+        "iteration": 4,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.78515625,
+      "unit": "MB",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.79296875,
+      "unit": "MB",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585751.9073277,
+      "datetime": "2025-05-18T18:29:11.907328",
+      "context": {
+        "iteration": 5,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.79296875,
+      "unit": "MB",
+      "timestamp": 1747585752.010242,
+      "datetime": "2025-05-18T18:29:12.010242",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.010242,
+      "datetime": "2025-05-18T18:29:12.010242",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.5049705505371094,
+      "unit": "ms",
+      "timestamp": 1747585752.010747,
+      "datetime": "2025-05-18T18:29:12.010747",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585752.010747,
+      "datetime": "2025-05-18T18:29:12.010747",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.80859375,
+      "unit": "MB",
+      "timestamp": 1747585752.010747,
+      "datetime": "2025-05-18T18:29:12.010747",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.010747,
+      "datetime": "2025-05-18T18:29:12.010747",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.5049705505371094,
+      "unit": "ms",
+      "timestamp": 1747585752.010747,
+      "datetime": "2025-05-18T18:29:12.010747",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.5049705505371094,
+      "unit": "ms",
+      "timestamp": 1747585752.010747,
+      "datetime": "2025-05-18T18:29:12.010747",
+      "context": {
+        "iteration": 6,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.80859375,
+      "unit": "MB",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.8125,
+      "unit": "MB",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.1136868,
+      "datetime": "2025-05-18T18:29:12.113687",
+      "context": {
+        "iteration": 7,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.8125,
+      "unit": "MB",
+      "timestamp": 1747585752.216571,
+      "datetime": "2025-05-18T18:29:12.216571",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.216571,
+      "datetime": "2025-05-18T18:29:12.216571",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 1.8651485443115234,
+      "unit": "ms",
+      "timestamp": 1747585752.2184362,
+      "datetime": "2025-05-18T18:29:12.218436",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585752.2184362,
+      "datetime": "2025-05-18T18:29:12.218436",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.8125,
+      "unit": "MB",
+      "timestamp": 1747585752.2184362,
+      "datetime": "2025-05-18T18:29:12.218436",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.2184362,
+      "datetime": "2025-05-18T18:29:12.218436",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 1.8651485443115234,
+      "unit": "ms",
+      "timestamp": 1747585752.2184362,
+      "datetime": "2025-05-18T18:29:12.218436",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 1.8651485443115234,
+      "unit": "ms",
+      "timestamp": 1747585752.2184362,
+      "datetime": "2025-05-18T18:29:12.218436",
+      "context": {
+        "iteration": 8,
+        "total": 10
+      }
+    },
+    {
+      "name": "query_before_memory_rss",
+      "value": 100.8125,
+      "unit": "MB",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "query_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "query_type": "run_query",
+        "query_preview": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.va"
+      }
+    },
+    {
+      "name": "run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1
+      }
+    },
+    {
+      "name": "query_result_count",
+      "value": 10,
+      "unit": "records",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_rss",
+      "value": 100.81640625,
+      "unit": "MB",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "query_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "query_text": "\n            MATCH (n:BenchmarkNode)\n            WHERE n.id % $mod = 0\n            RETURN n.id, n.value\n            ORDER BY n.value DESC\n            LIMIT 10\n            ",
+        "parameter_count": 1,
+        "record_count": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {}
+    },
+    {
+      "name": "read_benchmark_query_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.3196185,
+      "datetime": "2025-05-18T18:29:12.319618",
+      "context": {
+        "iteration": 9,
+        "total": 10
+      }
+    },
+    {
+      "name": "__main__.run_query_benchmark_duration",
+      "value": 1216.0398960113525,
+      "unit": "ms",
+      "timestamp": 1747585752.4225328,
+      "datetime": "2025-05-18T18:29:12.422533",
+      "context": {}
+    },
+    {
+      "name": "batch_size",
+      "value": 10,
+      "unit": "items",
+      "timestamp": 1747585752.4225328,
+      "datetime": "2025-05-18T18:29:12.422533",
+      "context": {
+        "query": "\n            CREATE (n:BatchNode {id: $id, value: $value, created: timestamp()})\n            "
+      }
+    },
+    {
+      "name": "batch_before_memory_rss",
+      "value": 100.81640625,
+      "unit": "MB",
+      "timestamp": 1747585752.4225328,
+      "datetime": "2025-05-18T18:29:12.422533",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.4225328,
+      "datetime": "2025-05-18T18:29:12.422533",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 29.88266944885254,
+      "unit": "ms",
+      "timestamp": 1747585752.4524155,
+      "datetime": "2025-05-18T18:29:12.452415",
+      "context": {
+        "item_index": 0,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 12.042999267578125,
+      "unit": "ms",
+      "timestamp": 1747585752.4644585,
+      "datetime": "2025-05-18T18:29:12.464458",
+      "context": {
+        "item_index": 1,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4644585,
+      "datetime": "2025-05-18T18:29:12.464458",
+      "context": {
+        "item_index": 2,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4644585,
+      "datetime": "2025-05-18T18:29:12.464458",
+      "context": {
+        "item_index": 3,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4644585,
+      "datetime": "2025-05-18T18:29:12.464458",
+      "context": {
+        "item_index": 4,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4644585,
+      "datetime": "2025-05-18T18:29:12.464458",
+      "context": {
+        "item_index": 5,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 12.325048446655273,
+      "unit": "ms",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "item_index": 6,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "item_index": 7,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "item_index": 8,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "item_index": 9,
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_after_memory_rss",
+      "value": 100.8515625,
+      "unit": "MB",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_after_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.execute_batch_duration",
+      "value": 54.25071716308594,
+      "unit": "ms",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {}
+    },
+    {
+      "name": "batch_operation_duration",
+      "value": 54.25071716308594,
+      "unit": "ms",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "after_batch_memory_rss",
+      "value": 100.8515625,
+      "unit": "MB",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "after_batch_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 10
+      }
+    },
+    {
+      "name": "batch_size",
+      "value": 50,
+      "unit": "items",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "query": "\n            CREATE (n:BatchNode {id: $id, value: $value, created: timestamp()})\n            "
+      }
+    },
+    {
+      "name": "batch_before_memory_rss",
+      "value": 100.8515625,
+      "unit": "MB",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_before_memory_vms",
+      "value": 558.9921875,
+      "unit": "MB",
+      "timestamp": 1747585752.4767835,
+      "datetime": "2025-05-18T18:29:12.476784",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.974283218383789,
+      "unit": "ms",
+      "timestamp": 1747585752.4927578,
+      "datetime": "2025-05-18T18:29:12.492758",
+      "context": {
+        "item_index": 0,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.3881664276123047,
+      "unit": "ms",
+      "timestamp": 1747585752.496146,
+      "datetime": "2025-05-18T18:29:12.496146",
+      "context": {
+        "item_index": 1,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.000570297241211,
+      "unit": "ms",
+      "timestamp": 1747585752.4981465,
+      "datetime": "2025-05-18T18:29:12.498147",
+      "context": {
+        "item_index": 2,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9987354278564453,
+      "unit": "ms",
+      "timestamp": 1747585752.4991453,
+      "datetime": "2025-05-18T18:29:12.499145",
+      "context": {
+        "item_index": 3,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4991453,
+      "datetime": "2025-05-18T18:29:12.499145",
+      "context": {
+        "item_index": 4,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4991453,
+      "datetime": "2025-05-18T18:29:12.499145",
+      "context": {
+        "item_index": 5,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4991453,
+      "datetime": "2025-05-18T18:29:12.499145",
+      "context": {
+        "item_index": 6,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.4991453,
+      "datetime": "2025-05-18T18:29:12.499145",
+      "context": {
+        "item_index": 7,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 12.090682983398438,
+      "unit": "ms",
+      "timestamp": 1747585752.511236,
+      "datetime": "2025-05-18T18:29:12.511236",
+      "context": {
+        "item_index": 8,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.3946762084960938,
+      "unit": "ms",
+      "timestamp": 1747585752.5136306,
+      "datetime": "2025-05-18T18:29:12.513631",
+      "context": {
+        "item_index": 9,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9981861114501953,
+      "unit": "ms",
+      "timestamp": 1747585752.5156288,
+      "datetime": "2025-05-18T18:29:12.515629",
+      "context": {
+        "item_index": 10,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0003318786621094,
+      "unit": "ms",
+      "timestamp": 1747585752.5176291,
+      "datetime": "2025-05-18T18:29:12.517629",
+      "context": {
+        "item_index": 11,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5176291,
+      "datetime": "2025-05-18T18:29:12.517629",
+      "context": {
+        "item_index": 12,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5176291,
+      "datetime": "2025-05-18T18:29:12.517629",
+      "context": {
+        "item_index": 13,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5176291,
+      "datetime": "2025-05-18T18:29:12.517629",
+      "context": {
+        "item_index": 14,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5176291,
+      "datetime": "2025-05-18T18:29:12.517629",
+      "context": {
+        "item_index": 15,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5176291,
+      "datetime": "2025-05-18T18:29:12.517629",
+      "context": {
+        "item_index": 16,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 11.262655258178711,
+      "unit": "ms",
+      "timestamp": 1747585752.5288918,
+      "datetime": "2025-05-18T18:29:12.528892",
+      "context": {
+        "item_index": 17,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0020008087158203,
+      "unit": "ms",
+      "timestamp": 1747585752.5308938,
+      "datetime": "2025-05-18T18:29:12.530894",
+      "context": {
+        "item_index": 18,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.000020980834961,
+      "unit": "ms",
+      "timestamp": 1747585752.5338938,
+      "datetime": "2025-05-18T18:29:12.533894",
+      "context": {
+        "item_index": 19,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.001523971557617,
+      "unit": "ms",
+      "timestamp": 1747585752.5358953,
+      "datetime": "2025-05-18T18:29:12.535895",
+      "context": {
+        "item_index": 20,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.505136489868164,
+      "unit": "ms",
+      "timestamp": 1747585752.5374005,
+      "datetime": "2025-05-18T18:29:12.537400",
+      "context": {
+        "item_index": 21,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.00653076171875,
+      "unit": "ms",
+      "timestamp": 1747585752.539407,
+      "datetime": "2025-05-18T18:29:12.539407",
+      "context": {
+        "item_index": 22,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.2644996643066406,
+      "unit": "ms",
+      "timestamp": 1747585752.5416715,
+      "datetime": "2025-05-18T18:29:12.541672",
+      "context": {
+        "item_index": 23,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.836942672729492,
+      "unit": "ms",
+      "timestamp": 1747585752.5445085,
+      "datetime": "2025-05-18T18:29:12.544508",
+      "context": {
+        "item_index": 24,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9977092742919922,
+      "unit": "ms",
+      "timestamp": 1747585752.5465062,
+      "datetime": "2025-05-18T18:29:12.546506",
+      "context": {
+        "item_index": 25,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.257108688354492,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 26,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 27,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 28,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 29,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 30,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 31,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 32,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 33,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 34,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5487633,
+      "datetime": "2025-05-18T18:29:12.548763",
+      "context": {
+        "item_index": 35,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 16.10088348388672,
+      "unit": "ms",
+      "timestamp": 1747585752.5648642,
+      "datetime": "2025-05-18T18:29:12.564864",
+      "context": {
+        "item_index": 36,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5648642,
+      "datetime": "2025-05-18T18:29:12.564864",
+      "context": {
+        "item_index": 37,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5648642,
+      "datetime": "2025-05-18T18:29:12.564864",
+      "context": {
+        "item_index": 38,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5648642,
+      "datetime": "2025-05-18T18:29:12.564864",
+      "context": {
+        "item_index": 39,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.5648642,
+      "datetime": "2025-05-18T18:29:12.564864",
+      "context": {
+        "item_index": 40,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 93.84989738464355,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 41,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 42,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 43,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 44,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 45,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 46,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 47,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.658714,
+      "datetime": "2025-05-18T18:29:12.658714",
+      "context": {
+        "item_index": 48,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 16.066789627075195,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "item_index": 49,
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_after_memory_rss",
+      "value": 100.92578125,
+      "unit": "MB",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_after_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.execute_batch_duration",
+      "value": 197.9973316192627,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {}
+    },
+    {
+      "name": "batch_operation_duration",
+      "value": 197.9973316192627,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "after_batch_memory_rss",
+      "value": 100.92578125,
+      "unit": "MB",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "after_batch_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 50
+      }
+    },
+    {
+      "name": "batch_size",
+      "value": 100,
+      "unit": "items",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "query": "\n            CREATE (n:BatchNode {id: $id, value: $value, created: timestamp()})\n            "
+      }
+    },
+    {
+      "name": "batch_before_memory_rss",
+      "value": 100.92578125,
+      "unit": "MB",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_before_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "item_index": 0,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "item_index": 1,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "item_index": 2,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6747808,
+      "datetime": "2025-05-18T18:29:12.674781",
+      "context": {
+        "item_index": 3,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 10.404348373413086,
+      "unit": "ms",
+      "timestamp": 1747585752.6851852,
+      "datetime": "2025-05-18T18:29:12.685185",
+      "context": {
+        "item_index": 4,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6851852,
+      "datetime": "2025-05-18T18:29:12.685185",
+      "context": {
+        "item_index": 5,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6851852,
+      "datetime": "2025-05-18T18:29:12.685185",
+      "context": {
+        "item_index": 6,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.6851852,
+      "datetime": "2025-05-18T18:29:12.685185",
+      "context": {
+        "item_index": 7,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 6.422519683837891,
+      "unit": "ms",
+      "timestamp": 1747585752.6916077,
+      "datetime": "2025-05-18T18:29:12.691608",
+      "context": {
+        "item_index": 8,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.7066001892089844,
+      "unit": "ms",
+      "timestamp": 1747585752.6933143,
+      "datetime": "2025-05-18T18:29:12.693314",
+      "context": {
+        "item_index": 9,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 4.0607452392578125,
+      "unit": "ms",
+      "timestamp": 1747585752.697375,
+      "datetime": "2025-05-18T18:29:12.697375",
+      "context": {
+        "item_index": 10,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.000497817993164,
+      "unit": "ms",
+      "timestamp": 1747585752.7003756,
+      "datetime": "2025-05-18T18:29:12.700376",
+      "context": {
+        "item_index": 11,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9996166229248047,
+      "unit": "ms",
+      "timestamp": 1747585752.7023752,
+      "datetime": "2025-05-18T18:29:12.702375",
+      "context": {
+        "item_index": 12,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9996166229248047,
+      "unit": "ms",
+      "timestamp": 1747585752.7043748,
+      "datetime": "2025-05-18T18:29:12.704375",
+      "context": {
+        "item_index": 13,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.7752647399902344,
+      "unit": "ms",
+      "timestamp": 1747585752.70615,
+      "datetime": "2025-05-18T18:29:12.706150",
+      "context": {
+        "item_index": 14,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9996166229248047,
+      "unit": "ms",
+      "timestamp": 1747585752.7081497,
+      "datetime": "2025-05-18T18:29:12.708150",
+      "context": {
+        "item_index": 15,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9800662994384766,
+      "unit": "ms",
+      "timestamp": 1747585752.7101297,
+      "datetime": "2025-05-18T18:29:12.710130",
+      "context": {
+        "item_index": 16,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0062923431396484,
+      "unit": "ms",
+      "timestamp": 1747585752.712136,
+      "datetime": "2025-05-18T18:29:12.712136",
+      "context": {
+        "item_index": 17,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9989738464355469,
+      "unit": "ms",
+      "timestamp": 1747585752.713135,
+      "datetime": "2025-05-18T18:29:12.713135",
+      "context": {
+        "item_index": 18,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.004861831665039,
+      "unit": "ms",
+      "timestamp": 1747585752.7151399,
+      "datetime": "2025-05-18T18:29:12.715140",
+      "context": {
+        "item_index": 19,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9955635070800781,
+      "unit": "ms",
+      "timestamp": 1747585752.7171354,
+      "datetime": "2025-05-18T18:29:12.717135",
+      "context": {
+        "item_index": 20,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.1262168884277344,
+      "unit": "ms",
+      "timestamp": 1747585752.7192616,
+      "datetime": "2025-05-18T18:29:12.719262",
+      "context": {
+        "item_index": 21,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0067691802978516,
+      "unit": "ms",
+      "timestamp": 1747585752.7212684,
+      "datetime": "2025-05-18T18:29:12.721268",
+      "context": {
+        "item_index": 22,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9992122650146484,
+      "unit": "ms",
+      "timestamp": 1747585752.7222676,
+      "datetime": "2025-05-18T18:29:12.722268",
+      "context": {
+        "item_index": 23,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9999275207519531,
+      "unit": "ms",
+      "timestamp": 1747585752.7242672,
+      "datetime": "2025-05-18T18:29:12.724267",
+      "context": {
+        "item_index": 24,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.584695816040039,
+      "unit": "ms",
+      "timestamp": 1747585752.726852,
+      "datetime": "2025-05-18T18:29:12.726852",
+      "context": {
+        "item_index": 25,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0051002502441406,
+      "unit": "ms",
+      "timestamp": 1747585752.728857,
+      "datetime": "2025-05-18T18:29:12.728857",
+      "context": {
+        "item_index": 26,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.112150192260742,
+      "unit": "ms",
+      "timestamp": 1747585752.7309692,
+      "datetime": "2025-05-18T18:29:12.730969",
+      "context": {
+        "item_index": 27,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.9997825622558594,
+      "unit": "ms",
+      "timestamp": 1747585752.733969,
+      "datetime": "2025-05-18T18:29:12.733969",
+      "context": {
+        "item_index": 28,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.001047134399414,
+      "unit": "ms",
+      "timestamp": 1747585752.73597,
+      "datetime": "2025-05-18T18:29:12.735970",
+      "context": {
+        "item_index": 29,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.183126449584961,
+      "unit": "ms",
+      "timestamp": 1747585752.7391531,
+      "datetime": "2025-05-18T18:29:12.739153",
+      "context": {
+        "item_index": 30,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.998828887939453,
+      "unit": "ms",
+      "timestamp": 1747585752.742152,
+      "datetime": "2025-05-18T18:29:12.742152",
+      "context": {
+        "item_index": 31,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.6748180389404297,
+      "unit": "ms",
+      "timestamp": 1747585752.7448268,
+      "datetime": "2025-05-18T18:29:12.744827",
+      "context": {
+        "item_index": 32,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.30732154846191406,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 33,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 34,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 35,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 36,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 37,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 38,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 39,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.745134,
+      "datetime": "2025-05-18T18:29:12.745134",
+      "context": {
+        "item_index": 40,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 16.125202178955078,
+      "unit": "ms",
+      "timestamp": 1747585752.7612593,
+      "datetime": "2025-05-18T18:29:12.761259",
+      "context": {
+        "item_index": 41,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7612593,
+      "datetime": "2025-05-18T18:29:12.761259",
+      "context": {
+        "item_index": 42,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7612593,
+      "datetime": "2025-05-18T18:29:12.761259",
+      "context": {
+        "item_index": 43,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 8.085250854492188,
+      "unit": "ms",
+      "timestamp": 1747585752.7693446,
+      "datetime": "2025-05-18T18:29:12.769345",
+      "context": {
+        "item_index": 44,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0072460174560547,
+      "unit": "ms",
+      "timestamp": 1747585752.7713518,
+      "datetime": "2025-05-18T18:29:12.771352",
+      "context": {
+        "item_index": 45,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7713518,
+      "datetime": "2025-05-18T18:29:12.771352",
+      "context": {
+        "item_index": 46,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7713518,
+      "datetime": "2025-05-18T18:29:12.771352",
+      "context": {
+        "item_index": 47,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7713518,
+      "datetime": "2025-05-18T18:29:12.771352",
+      "context": {
+        "item_index": 48,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.725622177124023,
+      "unit": "ms",
+      "timestamp": 1747585752.7770774,
+      "datetime": "2025-05-18T18:29:12.777077",
+      "context": {
+        "item_index": 49,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7770774,
+      "datetime": "2025-05-18T18:29:12.777077",
+      "context": {
+        "item_index": 50,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7770774,
+      "datetime": "2025-05-18T18:29:12.777077",
+      "context": {
+        "item_index": 51,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.7770774,
+      "datetime": "2025-05-18T18:29:12.777077",
+      "context": {
+        "item_index": 52,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 10.430574417114258,
+      "unit": "ms",
+      "timestamp": 1747585752.787508,
+      "datetime": "2025-05-18T18:29:12.787508",
+      "context": {
+        "item_index": 53,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.787508,
+      "datetime": "2025-05-18T18:29:12.787508",
+      "context": {
+        "item_index": 54,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.502939224243164,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 55,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 56,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 57,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 58,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 59,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 60,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.793011,
+      "datetime": "2025-05-18T18:29:12.793011",
+      "context": {
+        "item_index": 61,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.790224075317383,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 62,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 63,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 64,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 65,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 66,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 67,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 68,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8088012,
+      "datetime": "2025-05-18T18:29:12.808801",
+      "context": {
+        "item_index": 69,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.640020370483398,
+      "unit": "ms",
+      "timestamp": 1747585752.8244412,
+      "datetime": "2025-05-18T18:29:12.824441",
+      "context": {
+        "item_index": 70,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.484104156494141,
+      "unit": "ms",
+      "timestamp": 1747585752.8299253,
+      "datetime": "2025-05-18T18:29:12.829925",
+      "context": {
+        "item_index": 71,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0020008087158203,
+      "unit": "ms",
+      "timestamp": 1747585752.8319273,
+      "datetime": "2025-05-18T18:29:12.831927",
+      "context": {
+        "item_index": 72,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9993782043457031,
+      "unit": "ms",
+      "timestamp": 1747585752.8339267,
+      "datetime": "2025-05-18T18:29:12.833927",
+      "context": {
+        "item_index": 73,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.334117889404297,
+      "unit": "ms",
+      "timestamp": 1747585752.8362608,
+      "datetime": "2025-05-18T18:29:12.836261",
+      "context": {
+        "item_index": 74,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.753019332885742,
+      "unit": "ms",
+      "timestamp": 1747585752.8390138,
+      "datetime": "2025-05-18T18:29:12.839014",
+      "context": {
+        "item_index": 75,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 4.42194938659668,
+      "unit": "ms",
+      "timestamp": 1747585752.8434358,
+      "datetime": "2025-05-18T18:29:12.843436",
+      "context": {
+        "item_index": 76,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.7745494842529297,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 77,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 78,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 79,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 80,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 81,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 82,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.8452103,
+      "datetime": "2025-05-18T18:29:12.845210",
+      "context": {
+        "item_index": 83,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.643119812011719,
+      "unit": "ms",
+      "timestamp": 1747585752.8608534,
+      "datetime": "2025-05-18T18:29:12.860853",
+      "context": {
+        "item_index": 84,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 82.53693580627441,
+      "unit": "ms",
+      "timestamp": 1747585752.9433904,
+      "datetime": "2025-05-18T18:29:12.943390",
+      "context": {
+        "item_index": 85,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9433904,
+      "datetime": "2025-05-18T18:29:12.943390",
+      "context": {
+        "item_index": 86,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9433904,
+      "datetime": "2025-05-18T18:29:12.943390",
+      "context": {
+        "item_index": 87,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9433904,
+      "datetime": "2025-05-18T18:29:12.943390",
+      "context": {
+        "item_index": 88,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9433904,
+      "datetime": "2025-05-18T18:29:12.943390",
+      "context": {
+        "item_index": 89,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9433904,
+      "datetime": "2025-05-18T18:29:12.943390",
+      "context": {
+        "item_index": 90,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.666961669921875,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 91,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 92,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 93,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 94,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 95,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 96,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 97,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 98,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "item_index": 99,
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_after_memory_rss",
+      "value": 100.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_after_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.execute_batch_duration",
+      "value": 284.27648544311523,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {}
+    },
+    {
+      "name": "batch_operation_duration",
+      "value": 284.27648544311523,
+      "unit": "ms",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "after_batch_memory_rss",
+      "value": 100.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "after_batch_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 100
+      }
+    },
+    {
+      "name": "batch_size",
+      "value": 200,
+      "unit": "items",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "query": "\n            CREATE (n:BatchNode {id: $id, value: $value, created: timestamp()})\n            "
+      }
+    },
+    {
+      "name": "batch_before_memory_rss",
+      "value": 100.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_before_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585752.9590573,
+      "datetime": "2025-05-18T18:29:12.959057",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.966176986694336,
+      "unit": "ms",
+      "timestamp": 1747585752.9750235,
+      "datetime": "2025-05-18T18:29:12.975024",
+      "context": {
+        "item_index": 0,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9750235,
+      "datetime": "2025-05-18T18:29:12.975024",
+      "context": {
+        "item_index": 1,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9750235,
+      "datetime": "2025-05-18T18:29:12.975024",
+      "context": {
+        "item_index": 2,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9750235,
+      "datetime": "2025-05-18T18:29:12.975024",
+      "context": {
+        "item_index": 3,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9750235,
+      "datetime": "2025-05-18T18:29:12.975024",
+      "context": {
+        "item_index": 4,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.9750235,
+      "datetime": "2025-05-18T18:29:12.975024",
+      "context": {
+        "item_index": 5,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 10.267496109008789,
+      "unit": "ms",
+      "timestamp": 1747585752.985291,
+      "datetime": "2025-05-18T18:29:12.985291",
+      "context": {
+        "item_index": 6,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.985291,
+      "datetime": "2025-05-18T18:29:12.985291",
+      "context": {
+        "item_index": 7,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.985291,
+      "datetime": "2025-05-18T18:29:12.985291",
+      "context": {
+        "item_index": 8,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.985291,
+      "datetime": "2025-05-18T18:29:12.985291",
+      "context": {
+        "item_index": 9,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.373239517211914,
+      "unit": "ms",
+      "timestamp": 1747585752.9906642,
+      "datetime": "2025-05-18T18:29:12.990664",
+      "context": {
+        "item_index": 10,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.7108192443847656,
+      "unit": "ms",
+      "timestamp": 1747585752.993375,
+      "datetime": "2025-05-18T18:29:12.993375",
+      "context": {
+        "item_index": 11,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.5180110931396484,
+      "unit": "ms",
+      "timestamp": 1747585752.994893,
+      "datetime": "2025-05-18T18:29:12.994893",
+      "context": {
+        "item_index": 12,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.0530948638916016,
+      "unit": "ms",
+      "timestamp": 1747585752.9959462,
+      "datetime": "2025-05-18T18:29:12.995946",
+      "context": {
+        "item_index": 13,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.0008811950683594,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 14,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 15,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 16,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 17,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 18,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 19,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 20,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 21,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 22,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585752.996947,
+      "datetime": "2025-05-18T18:29:12.996947",
+      "context": {
+        "item_index": 23,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.688896179199219,
+      "unit": "ms",
+      "timestamp": 1747585753.012636,
+      "datetime": "2025-05-18T18:29:13.012636",
+      "context": {
+        "item_index": 24,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.8856525421142578,
+      "unit": "ms",
+      "timestamp": 1747585753.0145216,
+      "datetime": "2025-05-18T18:29:13.014522",
+      "context": {
+        "item_index": 25,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9989738464355469,
+      "unit": "ms",
+      "timestamp": 1747585753.0155206,
+      "datetime": "2025-05-18T18:29:13.015521",
+      "context": {
+        "item_index": 26,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0003318786621094,
+      "unit": "ms",
+      "timestamp": 1747585753.017521,
+      "datetime": "2025-05-18T18:29:13.017521",
+      "context": {
+        "item_index": 27,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9989738464355469,
+      "unit": "ms",
+      "timestamp": 1747585753.0185199,
+      "datetime": "2025-05-18T18:29:13.018520",
+      "context": {
+        "item_index": 28,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0185199,
+      "datetime": "2025-05-18T18:29:13.018520",
+      "context": {
+        "item_index": 29,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0185199,
+      "datetime": "2025-05-18T18:29:13.018520",
+      "context": {
+        "item_index": 30,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0185199,
+      "datetime": "2025-05-18T18:29:13.018520",
+      "context": {
+        "item_index": 31,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0185199,
+      "datetime": "2025-05-18T18:29:13.018520",
+      "context": {
+        "item_index": 32,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0185199,
+      "datetime": "2025-05-18T18:29:13.018520",
+      "context": {
+        "item_index": 33,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 9.258508682250977,
+      "unit": "ms",
+      "timestamp": 1747585753.0277784,
+      "datetime": "2025-05-18T18:29:13.027778",
+      "context": {
+        "item_index": 34,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.3376007080078125,
+      "unit": "ms",
+      "timestamp": 1747585753.028116,
+      "datetime": "2025-05-18T18:29:13.028116",
+      "context": {
+        "item_index": 35,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.028116,
+      "datetime": "2025-05-18T18:29:13.028116",
+      "context": {
+        "item_index": 36,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.028116,
+      "datetime": "2025-05-18T18:29:13.028116",
+      "context": {
+        "item_index": 37,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.028116,
+      "datetime": "2025-05-18T18:29:13.028116",
+      "context": {
+        "item_index": 38,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 10.012388229370117,
+      "unit": "ms",
+      "timestamp": 1747585753.0381284,
+      "datetime": "2025-05-18T18:29:13.038128",
+      "context": {
+        "item_index": 39,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0381284,
+      "datetime": "2025-05-18T18:29:13.038128",
+      "context": {
+        "item_index": 40,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0381284,
+      "datetime": "2025-05-18T18:29:13.038128",
+      "context": {
+        "item_index": 41,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0381284,
+      "datetime": "2025-05-18T18:29:13.038128",
+      "context": {
+        "item_index": 42,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.437135696411133,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 43,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 44,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 45,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 46,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 47,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 48,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 49,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 50,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0435655,
+      "datetime": "2025-05-18T18:29:13.043566",
+      "context": {
+        "item_index": 51,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.637397766113281,
+      "unit": "ms",
+      "timestamp": 1747585753.059203,
+      "datetime": "2025-05-18T18:29:13.059203",
+      "context": {
+        "item_index": 52,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0411014556884766,
+      "unit": "ms",
+      "timestamp": 1747585753.061244,
+      "datetime": "2025-05-18T18:29:13.061244",
+      "context": {
+        "item_index": 53,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.9993057250976562,
+      "unit": "ms",
+      "timestamp": 1747585753.0642433,
+      "datetime": "2025-05-18T18:29:13.064243",
+      "context": {
+        "item_index": 54,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9998550415039062,
+      "unit": "ms",
+      "timestamp": 1747585753.0662432,
+      "datetime": "2025-05-18T18:29:13.066243",
+      "context": {
+        "item_index": 55,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9986629486083984,
+      "unit": "ms",
+      "timestamp": 1747585753.0682418,
+      "datetime": "2025-05-18T18:29:13.068242",
+      "context": {
+        "item_index": 56,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0008087158203125,
+      "unit": "ms",
+      "timestamp": 1747585753.0702426,
+      "datetime": "2025-05-18T18:29:13.070243",
+      "context": {
+        "item_index": 57,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.536773681640625,
+      "unit": "ms",
+      "timestamp": 1747585753.0727794,
+      "datetime": "2025-05-18T18:29:13.072779",
+      "context": {
+        "item_index": 58,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9975433349609375,
+      "unit": "ms",
+      "timestamp": 1747585753.073777,
+      "datetime": "2025-05-18T18:29:13.073777",
+      "context": {
+        "item_index": 59,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.0469894409179688,
+      "unit": "ms",
+      "timestamp": 1747585753.076824,
+      "datetime": "2025-05-18T18:29:13.076824",
+      "context": {
+        "item_index": 60,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0062923431396484,
+      "unit": "ms",
+      "timestamp": 1747585753.0788302,
+      "datetime": "2025-05-18T18:29:13.078830",
+      "context": {
+        "item_index": 61,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.112150192260742,
+      "unit": "ms",
+      "timestamp": 1747585753.0809424,
+      "datetime": "2025-05-18T18:29:13.080942",
+      "context": {
+        "item_index": 62,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.2516975402832031,
+      "unit": "ms",
+      "timestamp": 1747585753.082194,
+      "datetime": "2025-05-18T18:29:13.082194",
+      "context": {
+        "item_index": 63,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.7441253662109375,
+      "unit": "ms",
+      "timestamp": 1747585753.0859382,
+      "datetime": "2025-05-18T18:29:13.085938",
+      "context": {
+        "item_index": 64,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.006053924560547,
+      "unit": "ms",
+      "timestamp": 1747585753.0879443,
+      "datetime": "2025-05-18T18:29:13.087944",
+      "context": {
+        "item_index": 65,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0879443,
+      "datetime": "2025-05-18T18:29:13.087944",
+      "context": {
+        "item_index": 66,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0062923431396484,
+      "unit": "ms",
+      "timestamp": 1747585753.0899506,
+      "datetime": "2025-05-18T18:29:13.089951",
+      "context": {
+        "item_index": 67,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0899506,
+      "datetime": "2025-05-18T18:29:13.089951",
+      "context": {
+        "item_index": 68,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0899506,
+      "datetime": "2025-05-18T18:29:13.089951",
+      "context": {
+        "item_index": 69,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 6.369113922119141,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 70,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 71,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 72,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 73,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 74,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 75,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 76,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 77,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 78,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.0963197,
+      "datetime": "2025-05-18T18:29:13.096320",
+      "context": {
+        "item_index": 79,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 94.85435485839844,
+      "unit": "ms",
+      "timestamp": 1747585753.191174,
+      "datetime": "2025-05-18T18:29:13.191174",
+      "context": {
+        "item_index": 80,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.191174,
+      "datetime": "2025-05-18T18:29:13.191174",
+      "context": {
+        "item_index": 81,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.191174,
+      "datetime": "2025-05-18T18:29:13.191174",
+      "context": {
+        "item_index": 82,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.191174,
+      "datetime": "2025-05-18T18:29:13.191174",
+      "context": {
+        "item_index": 83,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.191174,
+      "datetime": "2025-05-18T18:29:13.191174",
+      "context": {
+        "item_index": 84,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.871524810791016,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 85,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 86,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 87,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 88,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 89,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 90,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 91,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 92,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 93,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 94,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2070456,
+      "datetime": "2025-05-18T18:29:13.207046",
+      "context": {
+        "item_index": 95,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.768051147460938,
+      "unit": "ms",
+      "timestamp": 1747585753.2228136,
+      "datetime": "2025-05-18T18:29:13.222814",
+      "context": {
+        "item_index": 96,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2228136,
+      "datetime": "2025-05-18T18:29:13.222814",
+      "context": {
+        "item_index": 97,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2228136,
+      "datetime": "2025-05-18T18:29:13.222814",
+      "context": {
+        "item_index": 98,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.011081695556641,
+      "unit": "ms",
+      "timestamp": 1747585753.2278247,
+      "datetime": "2025-05-18T18:29:13.227825",
+      "context": {
+        "item_index": 99,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9981861114501953,
+      "unit": "ms",
+      "timestamp": 1747585753.2298229,
+      "datetime": "2025-05-18T18:29:13.229823",
+      "context": {
+        "item_index": 100,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0003318786621094,
+      "unit": "ms",
+      "timestamp": 1747585753.2318232,
+      "datetime": "2025-05-18T18:29:13.231823",
+      "context": {
+        "item_index": 101,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.505136489868164,
+      "unit": "ms",
+      "timestamp": 1747585753.2333283,
+      "datetime": "2025-05-18T18:29:13.233328",
+      "context": {
+        "item_index": 102,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.0058879852294922,
+      "unit": "ms",
+      "timestamp": 1747585753.2343342,
+      "datetime": "2025-05-18T18:29:13.234334",
+      "context": {
+        "item_index": 103,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.0008811950683594,
+      "unit": "ms",
+      "timestamp": 1747585753.235335,
+      "datetime": "2025-05-18T18:29:13.235335",
+      "context": {
+        "item_index": 104,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.376079559326172,
+      "unit": "ms",
+      "timestamp": 1747585753.2377112,
+      "datetime": "2025-05-18T18:29:13.237711",
+      "context": {
+        "item_index": 105,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9989013671875,
+      "unit": "ms",
+      "timestamp": 1747585753.23971,
+      "datetime": "2025-05-18T18:29:13.239710",
+      "context": {
+        "item_index": 106,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.0008811950683594,
+      "unit": "ms",
+      "timestamp": 1747585753.240711,
+      "datetime": "2025-05-18T18:29:13.240711",
+      "context": {
+        "item_index": 107,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9989013671875,
+      "unit": "ms",
+      "timestamp": 1747585753.2427099,
+      "datetime": "2025-05-18T18:29:13.242710",
+      "context": {
+        "item_index": 108,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.3704299926757812,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 109,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 110,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 111,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 112,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 113,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 114,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 115,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 116,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 117,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 118,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2440803,
+      "datetime": "2025-05-18T18:29:13.244080",
+      "context": {
+        "item_index": 119,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 16.495943069458008,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 120,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 121,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 122,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 123,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 124,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 125,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 126,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 127,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2605762,
+      "datetime": "2025-05-18T18:29:13.260576",
+      "context": {
+        "item_index": 128,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.350818634033203,
+      "unit": "ms",
+      "timestamp": 1747585753.275927,
+      "datetime": "2025-05-18T18:29:13.275927",
+      "context": {
+        "item_index": 129,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.105236053466797,
+      "unit": "ms",
+      "timestamp": 1747585753.2780323,
+      "datetime": "2025-05-18T18:29:13.278032",
+      "context": {
+        "item_index": 130,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.0573863983154297,
+      "unit": "ms",
+      "timestamp": 1747585753.2790897,
+      "datetime": "2025-05-18T18:29:13.279090",
+      "context": {
+        "item_index": 131,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2790897,
+      "datetime": "2025-05-18T18:29:13.279090",
+      "context": {
+        "item_index": 132,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2790897,
+      "datetime": "2025-05-18T18:29:13.279090",
+      "context": {
+        "item_index": 133,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2790897,
+      "datetime": "2025-05-18T18:29:13.279090",
+      "context": {
+        "item_index": 134,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 6.288766860961914,
+      "unit": "ms",
+      "timestamp": 1747585753.2853785,
+      "datetime": "2025-05-18T18:29:13.285378",
+      "context": {
+        "item_index": 135,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2853785,
+      "datetime": "2025-05-18T18:29:13.285378",
+      "context": {
+        "item_index": 136,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2853785,
+      "datetime": "2025-05-18T18:29:13.285378",
+      "context": {
+        "item_index": 137,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2853785,
+      "datetime": "2025-05-18T18:29:13.285378",
+      "context": {
+        "item_index": 138,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 5.576848983764648,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 139,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 140,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 141,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 142,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 143,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 144,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 145,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 146,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.2909553,
+      "datetime": "2025-05-18T18:29:13.290955",
+      "context": {
+        "item_index": 147,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 15.77138900756836,
+      "unit": "ms",
+      "timestamp": 1747585753.3067267,
+      "datetime": "2025-05-18T18:29:13.306727",
+      "context": {
+        "item_index": 148,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 4.398345947265625,
+      "unit": "ms",
+      "timestamp": 1747585753.311125,
+      "datetime": "2025-05-18T18:29:13.311125",
+      "context": {
+        "item_index": 149,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.9985904693603516,
+      "unit": "ms",
+      "timestamp": 1747585753.3141236,
+      "datetime": "2025-05-18T18:29:13.314124",
+      "context": {
+        "item_index": 150,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9984245300292969,
+      "unit": "ms",
+      "timestamp": 1747585753.316122,
+      "datetime": "2025-05-18T18:29:13.316122",
+      "context": {
+        "item_index": 151,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9996891021728516,
+      "unit": "ms",
+      "timestamp": 1747585753.3171217,
+      "datetime": "2025-05-18T18:29:13.317122",
+      "context": {
+        "item_index": 152,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0020008087158203,
+      "unit": "ms",
+      "timestamp": 1747585753.3191237,
+      "datetime": "2025-05-18T18:29:13.319124",
+      "context": {
+        "item_index": 153,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9982585906982422,
+      "unit": "ms",
+      "timestamp": 1747585753.320122,
+      "datetime": "2025-05-18T18:29:13.320122",
+      "context": {
+        "item_index": 154,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.0608177185058594,
+      "unit": "ms",
+      "timestamp": 1747585753.3231828,
+      "datetime": "2025-05-18T18:29:13.323183",
+      "context": {
+        "item_index": 155,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.000093460083008,
+      "unit": "ms",
+      "timestamp": 1747585753.325183,
+      "datetime": "2025-05-18T18:29:13.325183",
+      "context": {
+        "item_index": 156,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.6317367553710938,
+      "unit": "ms",
+      "timestamp": 1747585753.3268147,
+      "datetime": "2025-05-18T18:29:13.326815",
+      "context": {
+        "item_index": 157,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.071929931640625,
+      "unit": "ms",
+      "timestamp": 1747585753.3278866,
+      "datetime": "2025-05-18T18:29:13.327887",
+      "context": {
+        "item_index": 158,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.259420394897461,
+      "unit": "ms",
+      "timestamp": 1747585753.331146,
+      "datetime": "2025-05-18T18:29:13.331146",
+      "context": {
+        "item_index": 159,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.331146,
+      "datetime": "2025-05-18T18:29:13.331146",
+      "context": {
+        "item_index": 160,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.331146,
+      "datetime": "2025-05-18T18:29:13.331146",
+      "context": {
+        "item_index": 161,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.331146,
+      "datetime": "2025-05-18T18:29:13.331146",
+      "context": {
+        "item_index": 162,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.331146,
+      "datetime": "2025-05-18T18:29:13.331146",
+      "context": {
+        "item_index": 163,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 8.877038955688477,
+      "unit": "ms",
+      "timestamp": 1747585753.340023,
+      "datetime": "2025-05-18T18:29:13.340023",
+      "context": {
+        "item_index": 164,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 3.2110214233398438,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 165,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 166,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 167,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 168,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 169,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 170,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 171,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.343234,
+      "datetime": "2025-05-18T18:29:13.343234",
+      "context": {
+        "item_index": 172,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 100.18658638000488,
+      "unit": "ms",
+      "timestamp": 1747585753.4434206,
+      "datetime": "2025-05-18T18:29:13.443421",
+      "context": {
+        "item_index": 173,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0072460174560547,
+      "unit": "ms",
+      "timestamp": 1747585753.445428,
+      "datetime": "2025-05-18T18:29:13.445428",
+      "context": {
+        "item_index": 174,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9989013671875,
+      "unit": "ms",
+      "timestamp": 1747585753.4474268,
+      "datetime": "2025-05-18T18:29:13.447427",
+      "context": {
+        "item_index": 175,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0003318786621094,
+      "unit": "ms",
+      "timestamp": 1747585753.4494271,
+      "datetime": "2025-05-18T18:29:13.449427",
+      "context": {
+        "item_index": 176,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.9996166229248047,
+      "unit": "ms",
+      "timestamp": 1747585753.4514267,
+      "datetime": "2025-05-18T18:29:13.451427",
+      "context": {
+        "item_index": 177,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.99945068359375,
+      "unit": "ms",
+      "timestamp": 1747585753.4524262,
+      "datetime": "2025-05-18T18:29:13.452426",
+      "context": {
+        "item_index": 178,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 1.001119613647461,
+      "unit": "ms",
+      "timestamp": 1747585753.4534273,
+      "datetime": "2025-05-18T18:29:13.453427",
+      "context": {
+        "item_index": 179,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.000093460083008,
+      "unit": "ms",
+      "timestamp": 1747585753.4554274,
+      "datetime": "2025-05-18T18:29:13.455427",
+      "context": {
+        "item_index": 180,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.9210109710693359,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 181,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 182,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 183,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 184,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 185,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 186,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 187,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 188,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 189,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4563484,
+      "datetime": "2025-05-18T18:29:13.456348",
+      "context": {
+        "item_index": 190,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 14.816761016845703,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 191,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 192,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 193,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 194,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 195,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 196,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 0.0,
+      "unit": "ms",
+      "timestamp": 1747585753.4711652,
+      "datetime": "2025-05-18T18:29:13.471165",
+      "context": {
+        "item_index": 197,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 10.297536849975586,
+      "unit": "ms",
+      "timestamp": 1747585753.4814627,
+      "datetime": "2025-05-18T18:29:13.481463",
+      "context": {
+        "item_index": 198,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_item_duration",
+      "value": 2.0058155059814453,
+      "unit": "ms",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {
+        "item_index": 199,
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_after_memory_rss",
+      "value": 101.1171875,
+      "unit": "MB",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "batch_after_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.execute_batch_duration",
+      "value": 524.4112014770508,
+      "unit": "ms",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {}
+    },
+    {
+      "name": "batch_operation_duration",
+      "value": 524.4112014770508,
+      "unit": "ms",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "after_batch_memory_rss",
+      "value": 101.1171875,
+      "unit": "MB",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "after_batch_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {
+        "batch_size": 200
+      }
+    },
+    {
+      "name": "__main__.run_batch_benchmark_duration",
+      "value": 1060.9357357025146,
+      "unit": "ms",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {}
+    },
+    {
+      "name": "completion_memory_rss",
+      "value": 101.1171875,
+      "unit": "MB",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {}
+    },
+    {
+      "name": "completion_memory_vms",
+      "value": 559.99609375,
+      "unit": "MB",
+      "timestamp": 1747585753.4834685,
+      "datetime": "2025-05-18T18:29:13.483469",
+      "context": {}
+    }
+  ],
+  "statistics": {
+    "query_before_memory_vms": {
+      "count": 12,
+      "min": 558.9921875,
+      "max": 558.9921875,
+      "mean": 558.9921875,
+      "median": 558.9921875,
+      "unit": "MB",
+      "std_dev": 0.0
+    },
+    "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query_duration": {
+      "count": 12,
+      "min": 0.0,
+      "max": 93.67585182189941,
+      "mean": 15.883147716522217,
+      "median": 0.0,
+      "unit": "ms",
+      "std_dev": 35.95881373594424
+    },
+    "batch_after_memory_rss": {
+      "count": 4,
+      "min": 100.8515625,
+      "max": 101.1171875,
+      "mean": 100.97265625,
+      "median": 100.9609375,
+      "unit": "MB",
+      "std_dev": 0.11298902682248249
+    },
+    "batch_before_memory_vms": {
+      "count": 4,
+      "min": 558.9921875,
+      "max": 559.99609375,
+      "mean": 559.494140625,
+      "median": 559.494140625,
+      "unit": "MB",
+      "std_dev": 0.5796055436786477
+    },
+    "read_benchmark_query_duration": {
+      "count": 10,
+      "min": 0.0,
+      "max": 93.67585182189941,
+      "mean": 9.859061241149902,
+      "median": 0.0,
+      "unit": "ms",
+      "std_dev": 29.464410365495898
+    },
+    "query_result_count": {
+      "count": 12,
+      "min": 1,
+      "max": 10,
+      "mean": 8.5,
+      "median": 10.0,
+      "unit": "records",
+      "std_dev": 3.5032452487268535
+    },
+    "completion_memory_vms": {
+      "count": 1,
+      "min": 559.99609375,
+      "max": 559.99609375,
+      "mean": 559.99609375,
+      "median": 559.99609375,
+      "unit": "MB"
+    },
+    "query_before_memory_rss": {
+      "count": 12,
+      "min": 100.67578125,
+      "max": 100.8125,
+      "mean": 100.76302083333333,
+      "median": 100.767578125,
+      "unit": "MB",
+      "std_dev": 0.04347689378923713
+    },
+    "startup_memory_rss": {
+      "count": 1,
+      "min": 100.7109375,
+      "max": 100.7109375,
+      "mean": 100.7109375,
+      "median": 100.7109375,
+      "unit": "MB"
+    },
+    "after_batch_memory_rss": {
+      "count": 4,
+      "min": 100.8515625,
+      "max": 101.1171875,
+      "mean": 100.97265625,
+      "median": 100.9609375,
+      "unit": "MB",
+      "std_dev": 0.11298902682248249
+    },
+    "query_after_memory_vms": {
+      "count": 12,
+      "min": 558.9921875,
+      "max": 558.9921875,
+      "mean": 558.9921875,
+      "median": 558.9921875,
+      "unit": "MB",
+      "std_dev": 0.0
+    },
+    "batch_before_memory_rss": {
+      "count": 4,
+      "min": 100.81640625,
+      "max": 100.99609375,
+      "mean": 100.8974609375,
+      "median": 100.888671875,
+      "unit": "MB",
+      "std_dev": 0.08001458352996632
+    },
+    "run_query_duration": {
+      "count": 12,
+      "min": 0.0,
+      "max": 93.67585182189941,
+      "mean": 15.883147716522217,
+      "median": 0.0,
+      "unit": "ms",
+      "std_dev": 35.95881373594424
+    },
+    "query_after_memory_rss": {
+      "count": 12,
+      "min": 100.70703125,
+      "max": 100.81640625,
+      "mean": 100.77408854166667,
+      "median": 100.779296875,
+      "unit": "MB",
+      "std_dev": 0.036939215641718474
+    },
+    "startup_memory_vms": {
+      "count": 1,
+      "min": 558.9921875,
+      "max": 558.9921875,
+      "mean": 558.9921875,
+      "median": 558.9921875,
+      "unit": "MB"
+    },
+    "batch_after_memory_vms": {
+      "count": 4,
+      "min": 558.9921875,
+      "max": 559.99609375,
+      "mean": 559.7451171875,
+      "median": 559.99609375,
+      "unit": "MB",
+      "std_dev": 0.501953125
+    },
+    "__main__.run_batch_benchmark_duration": {
+      "count": 1,
+      "min": 1060.9357357025146,
+      "max": 1060.9357357025146,
+      "mean": 1060.9357357025146,
+      "median": 1060.9357357025146,
+      "unit": "ms"
+    },
+    "batch_size": {
+      "count": 4,
+      "min": 10,
+      "max": 200,
+      "mean": 90,
+      "median": 75.0,
+      "unit": "items",
+      "std_dev": 82.05689083394114
+    },
+    "src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.execute_batch_duration": {
+      "count": 4,
+      "min": 54.25071716308594,
+      "max": 524.4112014770508,
+      "mean": 265.23393392562866,
+      "median": 241.13690853118896,
+      "unit": "ms",
+      "std_dev": 197.12107381749934
+    },
+    "batch_operation_duration": {
+      "count": 4,
+      "min": 54.25071716308594,
+      "max": 524.4112014770508,
+      "mean": 265.23393392562866,
+      "median": 241.13690853118896,
+      "unit": "ms",
+      "std_dev": 197.12107381749934
+    },
+    "__main__.run_query_benchmark_duration": {
+      "count": 1,
+      "min": 1216.0398960113525,
+      "max": 1216.0398960113525,
+      "mean": 1216.0398960113525,
+      "median": 1216.0398960113525,
+      "unit": "ms"
+    },
+    "after_batch_memory_vms": {
+      "count": 4,
+      "min": 558.9921875,
+      "max": 559.99609375,
+      "mean": 559.7451171875,
+      "median": 559.99609375,
+      "unit": "MB",
+      "std_dev": 0.501953125
+    },
+    "database_connection_duration": {
+      "count": 1,
+      "min": 2061.5100860595703,
+      "max": 2061.5100860595703,
+      "mean": 2061.5100860595703,
+      "median": 2061.5100860595703,
+      "unit": "ms"
+    },
+    "completion_memory_rss": {
+      "count": 1,
+      "min": 101.1171875,
+      "max": 101.1171875,
+      "mean": 101.1171875,
+      "median": 101.1171875,
+      "unit": "MB"
+    },
+    "batch_item_duration": {
+      "count": 360,
+      "min": 0.0,
+      "max": 100.18658638000488,
+      "mean": 2.9442667961120605,
+      "median": 0.0,
+      "unit": "ms",
+      "std_dev": 10.39685253703846
+    }
+  },
+  "export_time": "2025-05-18T18:29:13.487221"
+}

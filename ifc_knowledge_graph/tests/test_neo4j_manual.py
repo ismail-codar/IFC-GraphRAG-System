@@ -9,7 +9,7 @@ import sys
 import logging
 
 # Add the src directory to the Python path
-src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
+src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 sys.path.insert(0, src_dir)
 
 from ifc_to_graph.database import Neo4jConnector, SchemaManager

@@ -4,15 +4,23 @@ Script to check Neo4j database connectivity and create test nodes if needed.
 """
 
 import logging
-from src.ifc_to_graph.database.neo4j_connector import Neo4jConnector
-from src.ifc_to_graph.parser.ifc_parser import IfcParser
+import os
+import sys
+
+# Add the src directory to the Python path
+src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
+sys.path.insert(0, src_dir)
+
+from ifc_to_graph.database.neo4j_connector import Neo4jConnector
+from ifc_to_graph.parser.ifc_parser import IfcParser
 from pathlib import Path
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def main():
+def test_create_nodes():
+    """Test function to check Neo4j database connectivity and create test nodes."""
     # Connect to Neo4j
     logger.info("Connecting to Neo4j...")
     connector = Neo4jConnector(
@@ -24,7 +32,7 @@ def main():
     # Test connection
     if not connector.test_connection():
         logger.error("Neo4j connection failed")
-        return
+        return False
     
     logger.info("Neo4j connection successful")
     
@@ -40,7 +48,7 @@ def main():
         logger.info("No nodes found, creating test nodes...")
         
         # Load an IFC file to get element IDs
-        ifc_file = str(Path(__file__).parent / "data" / "ifc_files" / "Duplex_A_20110907.ifc")
+        ifc_file = str(Path(__file__).parent.parent / "data" / "01_Duplex_A.ifc")
         parser = IfcParser(ifc_file)
         
         # Get some elements
@@ -80,6 +88,11 @@ def main():
         result = connector.run_query(node_count_query)
         node_count = result[0]["count"] if result else 0
         logger.info(f"Now have {node_count} nodes in the database")
+        
+        return created_count > 0
+    
+    return node_count > 0
 
 if __name__ == "__main__":
-    main() 
+    success = test_create_nodes()
+    sys.exit(0 if success else 1) 

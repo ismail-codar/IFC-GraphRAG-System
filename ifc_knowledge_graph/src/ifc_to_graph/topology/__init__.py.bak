@@ -1,4 +1,4 @@
-"""
+﻿"""
 Topology module for analyzing spatial relationships in IFC models.
 
 This module provides functionality to analyze topological relationships

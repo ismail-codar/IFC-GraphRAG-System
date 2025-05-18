@@ -1,0 +1,105 @@
+Performance Monitor Summary Report
+================================================================================
+Total metrics recorded: 497
+Unique metric types: 25
+System: Windows-11-10.0.26100-SP0
+Python version: 3.12.3
+Memory available: 31.92 GB
+--------------------------------------------------------------------------------
+
+Query Performance:
+  src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.run_query:
+    Count: 12 calls
+    Average: 15.88 ms
+    Median: 0.00 ms
+    Min/Max: 0.00/93.68 ms
+    Std Dev: 35.96 ms
+  read_benchmark_query:
+    Count: 10 calls
+    Average: 9.86 ms
+    Median: 0.00 ms
+    Min/Max: 0.00/93.68 ms
+    Std Dev: 29.46 ms
+  run_query:
+    Count: 12 calls
+    Average: 15.88 ms
+    Median: 0.00 ms
+    Min/Max: 0.00/93.68 ms
+    Std Dev: 35.96 ms
+  __main__.run_batch_benchmark:
+    Count: 1 calls
+    Average: 1060.94 ms
+    Median: 1060.94 ms
+    Min/Max: 1060.94/1060.94 ms
+  src.ifc_to_graph.database.neo4j_connector.Neo4jConnector.execute_batch:
+    Count: 4 calls
+    Average: 265.23 ms
+    Median: 241.14 ms
+    Min/Max: 54.25/524.41 ms
+    Std Dev: 197.12 ms
+  batch_operation:
+    Count: 4 calls
+    Average: 265.23 ms
+    Median: 241.14 ms
+    Min/Max: 54.25/524.41 ms
+    Std Dev: 197.12 ms
+  __main__.run_query_benchmark:
+    Count: 1 calls
+    Average: 1216.04 ms
+    Median: 1216.04 ms
+    Min/Max: 1216.04/1216.04 ms
+  database_connection:
+    Count: 1 calls
+    Average: 2061.51 ms
+    Median: 2061.51 ms
+    Min/Max: 2061.51/2061.51 ms
+  batch_item:
+    Count: 360 calls
+    Average: 2.94 ms
+    Median: 0.00 ms
+    Min/Max: 0.00/100.19 ms
+    Std Dev: 10.40 ms
+
+Memory Usage:
+  query_before:
+    Average VMS: 558.99 MB
+    Peak VMS: 558.99 MB
+  batch_after:
+    Average RSS: 100.97 MB
+    Peak RSS: 101.12 MB
+  batch_before:
+    Average VMS: 559.49 MB
+    Peak VMS: 560.00 MB
+  completion:
+    Average VMS: 560.00 MB
+    Peak VMS: 560.00 MB
+  query_before:
+    Average RSS: 100.76 MB
+    Peak RSS: 100.81 MB
+  startup:
+    Average RSS: 100.71 MB
+    Peak RSS: 100.71 MB
+  after_batch:
+    Average RSS: 100.97 MB
+    Peak RSS: 101.12 MB
+  query_after:
+    Average VMS: 558.99 MB
+    Peak VMS: 558.99 MB
+  batch_before:
+    Average RSS: 100.90 MB
+    Peak RSS: 101.00 MB
+  query_after:
+    Average RSS: 100.77 MB
+    Peak RSS: 100.82 MB
+  startup:
+    Average VMS: 558.99 MB
+    Peak VMS: 558.99 MB
+  batch_after:
+    Average VMS: 559.75 MB
+    Peak VMS: 560.00 MB
+  after_batch:
+    Average VMS: 559.75 MB
+    Peak VMS: 560.00 MB
+  completion:
+    Average RSS: 101.12 MB
+    Peak RSS: 101.12 MB

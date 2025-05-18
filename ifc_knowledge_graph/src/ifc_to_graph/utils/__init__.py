@@ -1,7 +1,5 @@
-ÿþ"""
-Utility modules for IFC to Graph conversion
+ï»¿"""
+Utilities Package
+
+This package contains utility modules used throughout the application.
 """
-
-from .graph_quality_analyzer import GraphQualityAnalyzer
-
-__all__ = ['GraphQualityAnalyzer']
