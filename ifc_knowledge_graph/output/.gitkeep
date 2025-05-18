@@ -1,0 +1,2 @@
+# This file ensures the output directory is created and tracked by Git
+# Topology analysis results will be saved in this directory 
