@@ -10,6 +10,7 @@ import argparse
 import logging
 import time
 from typing import Dict, List, Any, Optional
+from datetime import datetime
 
 from ifc_to_graph.processor import IfcProcessor
 
@@ -83,6 +84,25 @@ def parse_args() -> argparse.Namespace:
         help="Enable verbose logging"
     )
     
+    # Performance monitoring options
+    parser.add_argument(
+        "--monitor", "-m",
+        action="store_true",
+        help="Enable performance monitoring"
+    )
+    
+    parser.add_argument(
+        "--monitor-dir",
+        default="performance_reports",
+        help="Directory to store performance monitoring reports (default: 'performance_reports')"
+    )
+    
+    parser.add_argument(
+        "--report-console",
+        action="store_true",
+        help="Display performance report in console after processing"
+    )
+    
     return parser.parse_args()
 
 
@@ -99,25 +119,45 @@ def main() -> None:
         logger.error(f"IFC file not found: {args.ifc_file}")
         sys.exit(1)
     
+    # Create performance monitoring directory if enabled
+    if args.monitor:
+        monitoring_dir = args.monitor_dir
+        if not os.path.exists(monitoring_dir):
+            os.makedirs(monitoring_dir, exist_ok=True)
+            logger.info(f"Created performance monitoring directory: {monitoring_dir}")
+    else:
+        monitoring_dir = None
+    
     # Process the IFC file
     try:
         logger.info(f"Starting conversion of {args.ifc_file} to Neo4j")
         start_time = time.time()
         
-        # Initialize processor
+        # Initialize processor with monitoring if enabled
         processor = IfcProcessor(
             ifc_file_path=args.ifc_file,
             neo4j_uri=args.uri,
             neo4j_username=args.username,
             neo4j_password=args.password,
-            neo4j_database=args.database
+            neo4j_database=args.database,
+            enable_monitoring=args.monitor,
+            monitoring_output_dir=monitoring_dir
         )
         
         # Process the file
         stats = processor.process(
             clear_existing=args.clear,
-            batch_size=args.batch_size
+            batch_size=args.batch_size,
+            save_performance_report=args.monitor
         )
+        
+        # Print performance report to console if requested
+        if args.monitor and args.report_console:
+            print("\n" + "=" * 80)
+            print("PERFORMANCE REPORT")
+            print("=" * 80)
+            print(processor.db_connector.get_performance_report())
+            print("=" * 80 + "\n")
         
         # Close connections
         processor.close()
@@ -131,6 +171,14 @@ def main() -> None:
         logger.info(f"- Created {stats['relationship_count']} relationships")
         logger.info(f"- Created {stats['property_set_count']} property sets")
         logger.info(f"- Created {stats['material_count']} materials")
+        
+        # Print performance monitoring info
+        if args.monitor:
+            report_path = os.path.join(
+                monitoring_dir, 
+                f"{os.path.basename(args.ifc_file).split('.')[0]}_perf_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+            )
+            logger.info(f"Performance report saved to: {report_path}")
         
     except Exception as e:
         logger.error(f"Error processing IFC file: {str(e)}", exc_info=True)

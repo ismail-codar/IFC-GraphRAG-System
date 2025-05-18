@@ -7,10 +7,13 @@ to process IFC files and populate the graph database.
 
 import logging
 import time
+import os
 from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
 
 from .parser import IfcParser
 from .database import Neo4jConnector, SchemaManager, IfcToGraphMapper
+from .database.performance_monitor import timing_decorator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -27,7 +30,9 @@ class IfcProcessor:
         neo4j_uri: str = "neo4j://localhost:7687", 
         neo4j_username: str = "neo4j",
         neo4j_password: str = "password",
-        neo4j_database: Optional[str] = None
+        neo4j_database: Optional[str] = None,
+        enable_monitoring: bool = False,
+        monitoring_output_dir: Optional[str] = None
     ):
         """
         Initialize the processor with file and database connection details.
@@ -38,20 +43,29 @@ class IfcProcessor:
             neo4j_username: Neo4j username
             neo4j_password: Neo4j password
             neo4j_database: Optional Neo4j database name
+            enable_monitoring: Whether to enable performance monitoring
+            monitoring_output_dir: Directory to save performance reports
         """
         self.ifc_file_path = ifc_file_path
+        self.enable_monitoring = enable_monitoring
+        self.monitoring_output_dir = monitoring_output_dir
+        
+        # Create monitoring directory if it doesn't exist
+        if enable_monitoring and monitoring_output_dir:
+            os.makedirs(monitoring_output_dir, exist_ok=True)
         
         # Initialize parser
         logger.info(f"Initializing IFC parser for {ifc_file_path}")
         self.parser = IfcParser(ifc_file_path)
         
-        # Initialize database connection
+        # Initialize database connection with monitoring
         logger.info(f"Connecting to Neo4j database at {neo4j_uri}")
         self.db_connector = Neo4jConnector(
             uri=neo4j_uri,
             username=neo4j_username,
             password=neo4j_password,
-            database=neo4j_database
+            database=neo4j_database,
+            enable_monitoring=enable_monitoring
         )
         
         # Initialize schema manager
@@ -66,9 +80,12 @@ class IfcProcessor:
             "relationship_count": 0,
             "property_set_count": 0,
             "material_count": 0,
-            "processing_time": 0
+            "processing_time": 0,
+            "start_time": time.time(),
+            "end_time": 0
         }
     
+    @timing_decorator
     def setup_database(self, clear_existing: bool = False) -> None:
         """
         Set up the Neo4j database schema.
@@ -86,21 +103,35 @@ class IfcProcessor:
         self.schema_manager.setup_schema()
         logger.info("Database schema setup complete")
     
-    def process(self, clear_existing: bool = False, batch_size: int = 100) -> Dict[str, Any]:
+    def process(
+        self, 
+        clear_existing: bool = False, 
+        batch_size: int = 100,
+        save_performance_report: bool = True
+    ) -> Dict[str, Any]:
         """
         Process the IFC file and populate the Neo4j database.
         
         Args:
             clear_existing: Whether to clear existing data
             batch_size: Batch size for processing elements
+            save_performance_report: Whether to save a performance report
             
         Returns:
             Dictionary with processing statistics
         """
+        self.stats["start_time"] = time.time()
         start_time = time.time()
         
         # Set up database schema
         self.setup_database(clear_existing)
+        
+        # Track memory at start
+        if self.enable_monitoring:
+            self.db_connector.performance_monitor.measure_memory("process_start", {
+                "file_path": self.ifc_file_path,
+                "batch_size": batch_size
+            })
         
         # Process project info
         self._process_project_info()
@@ -114,7 +145,18 @@ class IfcProcessor:
         # Process relationships
         self._process_relationships()
         
+        # Track memory at end
+        if self.enable_monitoring:
+            self.db_connector.performance_monitor.measure_memory("process_end", {
+                "file_path": self.ifc_file_path,
+                "batch_size": batch_size,
+                "element_count": self.stats["element_count"],
+                "relationship_count": self.stats["relationship_count"]
+            })
+        
         self.stats["processing_time"] = time.time() - start_time
+        self.stats["end_time"] = time.time()
+        
         logger.info(f"Processing completed in {self.stats['processing_time']:.2f} seconds")
         
         # Log statistics
@@ -131,8 +173,13 @@ class IfcProcessor:
         self.stats["node_count"] = node_count
         self.stats["relationship_count"] = rel_count
         
+        # Save performance report if monitoring is enabled
+        if self.enable_monitoring and save_performance_report:
+            self._save_performance_report()
+        
         return self.stats
     
+    @timing_decorator
     def _process_project_info(self) -> None:
         """Process project information."""
         logger.info("Processing project information")
@@ -145,6 +192,7 @@ class IfcProcessor:
             project_info["IFCType"] = "IfcProject"
             self.mapper.create_node_from_element(project_info)
     
+    @timing_decorator
     def _process_spatial_structure(self) -> None:
         """Process the spatial structure hierarchy."""
         logger.info("Processing spatial structure")
@@ -219,6 +267,7 @@ class IfcProcessor:
                 )
                 self.stats["relationship_count"] += 1
     
+    @timing_decorator
     def _process_elements(self, batch_size: int = 100) -> None:
         """
         Process IFC elements.
@@ -233,10 +282,35 @@ class IfcProcessor:
         total_elements = len(elements)
         logger.info(f"Found {total_elements} elements to process")
         
+        # Record metric for element count if monitoring enabled
+        if self.enable_monitoring:
+            self.db_connector.performance_monitor.record_metric(
+                name="total_ifc_elements",
+                value=total_elements,
+                unit="count",
+                context={"ifc_file": os.path.basename(self.ifc_file_path)}
+            )
+        
         # Process elements in batches
         for i in range(0, total_elements, batch_size):
             batch = elements[i:i+batch_size]
+            batch_start_time = time.time()
+            
             logger.info(f"Processing batch of {len(batch)} elements ({i+1}-{min(i+batch_size, total_elements)} of {total_elements})")
+            
+            # Start batch timer if monitoring enabled
+            batch_timer = None
+            if self.enable_monitoring:
+                batch_timer = self.db_connector.performance_monitor.start_timer(
+                    "element_batch_processing",
+                    {
+                        "batch_number": i // batch_size + 1,
+                        "batch_size": len(batch),
+                        "batch_start_index": i + 1,
+                        "batch_end_index": min(i+batch_size, total_elements),
+                        "total_elements": total_elements
+                    }
+                )
             
             for element in batch:
                 # Skip if no GlobalId
@@ -248,19 +322,33 @@ class IfcProcessor:
                 
                 # Create node for element
                 element_id = self.mapper.create_node_from_element(attributes)
-                if not element_id:
-                    continue
                 
-                self.stats["element_count"] += 1
-                
-                # Process property sets
-                self._process_element_property_sets(element, element_id)
-                
-                # Process materials
-                self._process_element_materials(element, element_id)
-                
-                # Connect to spatial structure
-                self._connect_element_to_spatial_structure(element, element_id)
+                if element_id:
+                    self.stats["element_count"] += 1
+                    
+                    # Process property sets
+                    self._process_element_property_sets(element, element_id)
+                    
+                    # Process materials
+                    self._process_element_materials(element, element_id)
+                    
+                    # Connect to spatial structure
+                    self._connect_element_to_spatial_structure(element, element_id)
+            
+            # Record batch processing time if monitoring enabled
+            if self.enable_monitoring and batch_timer:
+                batch_timer()  # Stop the timer
+                batch_processing_time = time.time() - batch_start_time
+                self.db_connector.performance_monitor.record_metric(
+                    name="batch_processing_time",
+                    value=batch_processing_time,
+                    unit="s",
+                    context={
+                        "batch_number": i // batch_size + 1,
+                        "batch_size": len(batch),
+                        "elements_per_second": len(batch) / batch_processing_time if batch_processing_time > 0 else 0
+                    }
+                )
     
     def _process_element_property_sets(self, element, element_id: str) -> None:
         """
@@ -270,17 +358,15 @@ class IfcProcessor:
             element: IFC element
             element_id: GlobalId of the element
         """
-        # Get property sets
-        property_sets = self.parser.get_property_sets(element)
+        # Get property sets for this element
+        property_sets = self.parser.get_element_property_sets(element)
         
-        for pset_name, properties in property_sets.items():
-            # Create property set node
-            pset_id = self.mapper.create_property_set_node(pset_name, properties)
-            
-            if pset_id:
-                # Link element to property set
-                self.mapper.link_element_to_property_set(element_id, pset_id)
-                self.stats["property_set_count"] += 1
+        if property_sets:
+            # Create property set nodes and relationships
+            for pset in property_sets:
+                pset_id = self.mapper.create_property_set(pset, element_id)
+                if pset_id:
+                    self.stats["property_set_count"] += 1
     
     def _process_element_materials(self, element, element_id: str) -> None:
         """
@@ -290,115 +376,121 @@ class IfcProcessor:
             element: IFC element
             element_id: GlobalId of the element
         """
-        # Get materials
-        materials = self.parser.extract_material_info(element)
+        # Get materials for this element
+        materials = self.parser.get_element_materials(element)
         
-        for material in materials:
-            # Create material node
-            material_name = self.mapper.create_material_node(material)
-            
-            if material_name:
-                # Link element to material
-                self.mapper.link_element_to_material(element_id, material_name)
-                self.stats["material_count"] += 1
+        if materials:
+            # Create material nodes and relationships
+            for material in materials:
+                material_id = self.mapper.create_material(material, element_id)
+                if material_id:
+                    self.stats["material_count"] += 1
     
     def _connect_element_to_spatial_structure(self, element, element_id: str) -> None:
         """
-        Connect an element to its spatial structure.
+        Connect element to spatial structure.
         
         Args:
             element: IFC element
             element_id: GlobalId of the element
         """
-        # Get relationships
-        relationships = self.parser.get_relationships(element)
+        # Get containing spatial structure
+        container = self.parser.get_element_container(element)
         
-        # Find spatial containment relationships
-        contained_in = relationships.get("ContainedInStructure", [])
-        
-        for container in contained_in:
-            if hasattr(container, "GlobalId"):
-                # Create relationship
-                self.mapper.create_relationship(
-                    container.GlobalId,
-                    element_id,
-                    "IfcRelContainedInSpatialStructure"
-                )
-                self.stats["relationship_count"] += 1
+        if container and container.get("GlobalId"):
+            # Create containment relationship
+            self.mapper.create_relationship(
+                container["GlobalId"],
+                element_id,
+                "IfcRelContainedInSpatialStructure"
+            )
+            self.stats["relationship_count"] += 1
     
+    @timing_decorator
     def _process_relationships(self) -> None:
         """Process relationships between elements."""
         logger.info("Processing element relationships")
         
-        # Get all elements
-        elements = self.parser.get_elements()
+        # Get all relationships
+        relationships = self.parser.get_relationships()
         
-        for element in elements:
-            # Skip if no GlobalId
-            if not hasattr(element, "GlobalId"):
+        logger.info(f"Found {len(relationships)} relationships to process")
+        
+        # Record metric for relationship count if monitoring enabled
+        if self.enable_monitoring:
+            self.db_connector.performance_monitor.record_metric(
+                name="total_ifc_relationships",
+                value=len(relationships),
+                unit="count",
+                context={"ifc_file": os.path.basename(self.ifc_file_path)}
+            )
+        
+        # Create relationships in the graph
+        for rel in relationships:
+            # Skip if missing source or target
+            if not rel.get("SourceGlobalId") or not rel.get("TargetGlobalId"):
                 continue
             
-            element_id = element.GlobalId
+            # Create the relationship
+            success = self.mapper.create_relationship(
+                rel["SourceGlobalId"],
+                rel["TargetGlobalId"],
+                rel["RelationshipType"],
+                rel.get("Properties")
+            )
             
-            # Get relationships
-            relationships = self.parser.get_relationships(element)
+            if success:
+                self.stats["relationship_count"] += 1
+    
+    def _save_performance_report(self) -> None:
+        """
+        Save performance monitoring report and metrics to files.
+        """
+        if not self.enable_monitoring or not self.monitoring_output_dir:
+            return
+        
+        try:
+            # Generate timestamp for filenames
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_filename = os.path.basename(self.ifc_file_path).split('.')[0]
             
-            # Process each relationship type
-            for rel_type, related_elements in relationships.items():
-                # Skip spatial containment (already processed)
-                if rel_type == "ContainedInStructure":
-                    continue
+            # Save summary report
+            report_path = os.path.join(
+                self.monitoring_output_dir, 
+                f"{base_filename}_perf_report_{timestamp}.txt"
+            )
+            
+            with open(report_path, 'w') as report_file:
+                report_file.write(self.db_connector.get_performance_report())
                 
-                for related in related_elements:
-                    if hasattr(related, "GlobalId"):
-                        # Create relationship based on type
-                        if rel_type == "Aggregates":
-                            # Element is aggregated by the related element
-                            self.mapper.create_relationship(
-                                related.GlobalId,
-                                element_id,
-                                "IfcRelAggregates"
-                            )
-                        elif rel_type == "ConnectedTo":
-                            # Element is connected to the related element
-                            self.mapper.create_relationship(
-                                element_id,
-                                related.GlobalId,
-                                "IfcRelConnectsElements"
-                            )
-                        elif rel_type == "Fills":
-                            # Element fills the related element (e.g., door fills opening)
-                            self.mapper.create_relationship(
-                                element_id,
-                                related.GlobalId,
-                                "IfcRelFillsElement"
-                            )
-                        elif rel_type == "VoidsElements":
-                            # Element voids the related element (e.g., opening in wall)
-                            self.mapper.create_relationship(
-                                related.GlobalId,
-                                element_id,
-                                "IfcRelVoidsElement"
-                            )
-                        elif rel_type == "BoundedBy":
-                            # Space is bounded by element
-                            self.mapper.create_relationship(
-                                element_id,
-                                related.GlobalId,
-                                "IfcRelSpaceBoundary"
-                            )
-                        else:
-                            # Generic relationship
-                            self.mapper.create_relationship(
-                                element_id,
-                                related.GlobalId,
-                                "IfcRelConnectsElements"
-                            )
-                        
-                        self.stats["relationship_count"] += 1
+                # Add processing statistics
+                report_file.write("\n\nProcessing Statistics\n")
+                report_file.write("=" * 80 + "\n")
+                report_file.write(f"Elements: {self.stats['element_count']}\n")
+                report_file.write(f"Relationships: {self.stats['relationship_count']}\n")
+                report_file.write(f"Property Sets: {self.stats['property_set_count']}\n")
+                report_file.write(f"Materials: {self.stats['material_count']}\n")
+                report_file.write(f"Processing Time: {self.stats['processing_time']:.2f} seconds\n")
+                report_file.write(f"Nodes in Graph: {self.stats['node_count']}\n")
+                report_file.write(f"Relationships in Graph: {self.stats.get('relationship_count', 0)}\n")
+            
+            logger.info(f"Performance report saved to {report_path}")
+            
+            # Export detailed metrics to JSON
+            metrics_path = os.path.join(
+                self.monitoring_output_dir, 
+                f"{base_filename}_perf_metrics_{timestamp}.json"
+            )
+            
+            self.db_connector.export_performance_metrics(metrics_path)
+            logger.info(f"Performance metrics exported to {metrics_path}")
+            
+        except Exception as e:
+            logger.error(f"Error saving performance report: {str(e)}")
     
     def close(self) -> None:
-        """Close database connection and release resources."""
+        """
+        Close database connection and clean up resources.
+        """
         if self.db_connector:
-            self.db_connector.close()
-            logger.info("Database connection closed") 
+            self.db_connector.close() 
