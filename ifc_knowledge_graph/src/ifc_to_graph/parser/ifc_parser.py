@@ -122,6 +122,24 @@ class IfcParser:
         except Exception as e:
             logger.error(f"Error getting element by GlobalId {global_id}: {str(e)}")
             return None
+            
+    def get_element_global_id(self, element: Any) -> Optional[str]:
+        """
+        Get the GlobalId of an element.
+        
+        Args:
+            element: IFC element
+            
+        Returns:
+            GlobalId string if found, None otherwise
+        """
+        try:
+            if hasattr(element, "GlobalId"):
+                return element.GlobalId
+            return None
+        except Exception as e:
+            logger.error(f"Error getting GlobalId for element: {str(e)}")
+            return None
     
     def get_element_attributes(self, element: Any) -> Dict[str, Any]:
         """
@@ -417,115 +435,90 @@ class IfcParser:
     
     def get_property_sets(self, element: Any) -> Dict[str, Dict[str, Any]]:
         """
-        Extract property sets for an element.
+        Extract property sets for an IFC element.
         
         Args:
             element: The IFC element to extract property sets from
             
         Returns:
-            Dictionary mapping property set names to property dictionaries
+            Dictionary of property set names and their property dictionaries
         """
-        if not element:
-            return {}
-            
-        element_id = element.GlobalId
+        # Check cache
+        element_id = None
+        if hasattr(element, "GlobalId"):
+            element_id = element.GlobalId
+            if element_id in self._property_sets_cache:
+                return self._property_sets_cache[element_id]
         
-        # Check if property sets for this element are already cached
-        if element_id in self._property_sets_cache:
-            return self._property_sets_cache[element_id]
-            
         property_sets = {}
         
         try:
-            # Get related property sets through IfcRelDefinesByProperties
-            for rel in self.file.by_type("IfcRelDefinesByProperties"):
-                if element in rel.RelatedObjects:
-                    prop_def = rel.RelatingPropertyDefinition
-                    
-                    # Handle different property definition types
-                    if prop_def.is_a("IfcPropertySet"):
-                        # Standard property set
-                        prop_set_name = prop_def.Name
-                        properties = {}
+            # Get property sets through IfcRelDefinesByProperties
+            if hasattr(element, "IsDefinedBy"):
+                for definition in element.IsDefinedBy:
+                    if definition.is_a("IfcRelDefinesByProperties"):
+                        prop_def = definition.RelatingPropertyDefinition
                         
-                        for prop in prop_def.HasProperties:
-                            if prop.is_a("IfcPropertySingleValue"):
-                                # Simple properties with a single value
-                                if prop.NominalValue:
-                                    # Extract the actual value depending on its type
-                                    value = self._extract_value(prop.NominalValue)
-                                    properties[prop.Name] = {
-                                        "value": value,
-                                        "type": prop.NominalValue.is_a()
-                                    }
-                                else:
-                                    properties[prop.Name] = {
-                                        "value": None,
-                                        "type": "None"
-                                    }
-                            elif prop.is_a("IfcComplexProperty"):
-                                # Complex properties containing sub-properties
-                                complex_props = {}
-                                for sub_prop in prop.HasProperties:
-                                    if hasattr(sub_prop, "NominalValue") and sub_prop.NominalValue:
-                                        value = self._extract_value(sub_prop.NominalValue)
-                                        complex_props[sub_prop.Name] = {
-                                            "value": value,
-                                            "type": sub_prop.NominalValue.is_a()
-                                        }
-                                properties[prop.Name] = {
-                                    "value": complex_props,
-                                    "type": "Complex"
-                                }
+                        if prop_def.is_a("IfcPropertySet"):
+                            # Standard property set
+                            pset_name = prop_def.Name
+                            properties = {}
+                            
+                            for prop in prop_def.HasProperties:
+                                if prop.is_a("IfcPropertySingleValue"):
+                                    # Extract single values
+                                    if prop.NominalValue:
+                                        # Convert value to Python native type
+                                        value = self._extract_value(prop.NominalValue)
+                                        properties[prop.Name] = value
+                                    else:
+                                        properties[prop.Name] = None
+                                        
+                                # Add support for more property types as needed
+                                # IfcPropertyEnumeratedValue, IfcPropertyTableValue, etc.
                                 
-                        property_sets[prop_set_name] = properties
-                    
-                    elif prop_def.is_a("IfcElementQuantity"):
-                        # Quantity sets
-                        quantity_set_name = prop_def.Name
-                        quantities = {}
-                        
-                        for quantity in prop_def.Quantities:
-                            if quantity.is_a("IfcQuantityLength"):
-                                quantities[quantity.Name] = {
-                                    "value": quantity.LengthValue,
-                                    "type": "Length",
-                                    "unit": "m"  # Default IFC unit for length
-                                }
-                            elif quantity.is_a("IfcQuantityArea"):
-                                quantities[quantity.Name] = {
-                                    "value": quantity.AreaValue,
-                                    "type": "Area",
-                                    "unit": "m²"  # Default IFC unit for area
-                                }
-                            elif quantity.is_a("IfcQuantityVolume"):
-                                quantities[quantity.Name] = {
-                                    "value": quantity.VolumeValue,
-                                    "type": "Volume",
-                                    "unit": "m³"  # Default IFC unit for volume
-                                }
-                            elif quantity.is_a("IfcQuantityCount"):
-                                quantities[quantity.Name] = {
-                                    "value": quantity.CountValue,
-                                    "type": "Count",
-                                    "unit": "units"
-                                }
-                            elif quantity.is_a("IfcQuantityWeight"):
-                                quantities[quantity.Name] = {
-                                    "value": quantity.WeightValue,
-                                    "type": "Weight",
-                                    "unit": "kg"  # Default IFC unit for weight
-                                }
-                        
-                        property_sets[quantity_set_name] = quantities
-            
-            # Cache the results
-            self._property_sets_cache[element_id] = property_sets
+                            property_sets[pset_name] = properties
+                            
+                        elif prop_def.is_a("IfcElementQuantity"):
+                            # Quantity set
+                            qset_name = prop_def.Name
+                            quantities = {}
+                            
+                            for quantity in prop_def.Quantities:
+                                if quantity.is_a("IfcQuantityLength"):
+                                    quantities[quantity.Name] = quantity.LengthValue
+                                elif quantity.is_a("IfcQuantityArea"):
+                                    quantities[quantity.Name] = quantity.AreaValue
+                                elif quantity.is_a("IfcQuantityVolume"):
+                                    quantities[quantity.Name] = quantity.VolumeValue
+                                elif quantity.is_a("IfcQuantityCount"):
+                                    quantities[quantity.Name] = quantity.CountValue
+                                elif quantity.is_a("IfcQuantityWeight"):
+                                    quantities[quantity.Name] = quantity.WeightValue
+                                # Add other quantity types as needed
+                            
+                            property_sets[qset_name] = quantities
+        
+            # Cache the result
+            if element_id:
+                self._property_sets_cache[element_id] = property_sets
                 
         except Exception as e:
-            logger.error(f"Error extracting property sets for element {element_id}: {str(e)}")
-        
+            logger.error(f"Error extracting property sets for element: {str(e)}")
+            
         return property_sets
+        
+    def get_element_property_sets(self, element: Any) -> Dict[str, Dict[str, Any]]:
+        """
+        Alias for get_property_sets for compatibility with the processor.
+        
+        Args:
+            element: The IFC element to extract property sets from
+            
+        Returns:
+            Dictionary of property set names and their property dictionaries
+        """
+        return self.get_property_sets(element)
     
     def _extract_value(self, nominal_value: Any) -> Any:
         """

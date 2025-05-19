@@ -15,6 +15,7 @@ import tempfile
 import time
 import psutil
 import json
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -32,6 +33,10 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Global configuration - can be overridden by command line args
+CLEAR_DATABASE = True
+BATCH_SIZE = 100  # Increased from 20 to 100 for better performance
 
 
 class TestIntegrationOptimized(unittest.TestCase):
@@ -98,10 +103,12 @@ class TestIntegrationOptimized(unittest.TestCase):
         logger.info(f"Initial memory usage: {start_memory:.2f} MB")
         
         try:
-            # Process the IFC file with database reset and batch size of 20
+            # Process the IFC file with database reset config from command line
+            # Use a larger batch size and parallel_batch_size for faster processing
             stats = self.processor.process(
-                clear_existing=True,
-                batch_size=20,
+                clear_existing=CLEAR_DATABASE,
+                batch_size=BATCH_SIZE,
+                parallel_batch_size=400,  # Much larger for speed
                 save_performance_report=True
             )
             
@@ -136,10 +143,10 @@ class TestIntegrationOptimized(unittest.TestCase):
         """
         try:
             # Reset database first
-            self.processor.setup_database(clear_existing=True)
+            self.processor.setup_database(clear_existing=CLEAR_DATABASE)
             
             # Process data
-            self.processor.process(batch_size=20)
+            self.processor.process(batch_size=BATCH_SIZE)
             
             # Query the graph to check structure
             with self.processor.db_connector.get_session() as session:
@@ -199,8 +206,8 @@ class TestIntegrationOptimized(unittest.TestCase):
             
             # Process with monitoring enabled
             stats = self.processor.process(
-                clear_existing=True,
-                batch_size=30,  # Use a moderate batch size
+                clear_existing=CLEAR_DATABASE,
+                batch_size=BATCH_SIZE,  # Use larger batch size
                 save_performance_report=True
             )
             
@@ -239,8 +246,8 @@ class TestIntegrationOptimized(unittest.TestCase):
             
             # Process file
             stats = self.processor.process(
-                clear_existing=True,
-                batch_size=20
+                clear_existing=CLEAR_DATABASE,
+                batch_size=BATCH_SIZE
             )
             
             # Test should succeed without exceptions for this schema version
@@ -253,4 +260,27 @@ class TestIntegrationOptimized(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main() 
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Run optimized integration tests')
+    parser.add_argument('--no-clear', action='store_true', help='Do not clear database before tests')
+    parser.add_argument('--batch-size', type=int, default=100, help='Batch size for processing')
+    parser.add_argument('--test', type=str, help='Run specific test (e.g., test_1_end_to_end_pipeline)')
+    
+    args = parser.parse_args()
+    
+    # Update global configuration
+    if args.no_clear:
+        CLEAR_DATABASE = False
+        logger.info("Database clearing disabled")
+    
+    if args.batch_size:
+        BATCH_SIZE = args.batch_size
+        logger.info(f"Using batch size: {BATCH_SIZE}")
+    
+    # Run specific test or all tests
+    if args.test:
+        suite = unittest.TestSuite()
+        suite.addTest(TestIntegrationOptimized(args.test))
+        unittest.TextTestRunner().run(suite)
+    else:
+        unittest.main(argv=sys.argv[:1])  # Exclude our custom args from unittest 
