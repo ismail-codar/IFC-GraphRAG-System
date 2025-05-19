@@ -110,7 +110,7 @@ This phase focuses on extracting and representing topological relationships usin
   - [x] Validate topological relationships
   - [x] Benchmark performance
 
-## Phase 3: Building the Knowledge Graph Pipeline ⏳
+## Phase 3: Building the Knowledge Graph Pipeline ✅
 
 This phase involves creating a complete pipeline for processing IFC files and loading them into Neo4j with all relationships.
 
@@ -149,10 +149,84 @@ This phase involves creating a complete pipeline for processing IFC files and lo
   - [x] Test on various IFC versions
   - [x] Performance testing
   - [x] Memory usage optimization
+  - [x] Develop advanced debug testing tools
 
-## Phase 4: Query Library and Documentation
+- [x] **IFC Optimization Tools**
+  - [x] Create IFC optimizer to reduce file sizes
+  - [x] Implement batch processing of multiple IFC files
+  - [x] Add detailed statistics on optimization results
+  - [x] Integrate with the main pipeline
 
-This final phase focuses on creating utilities to make the knowledge graph useful for end users.
+## Phase 3.5: Issue Resolution ⏳
+
+This phase addresses issues discovered during integration testing.
+
+### Tasks:
+
+- [ ] **Fix Material Node Creation Bug**
+  - [ ] Investigate type mismatch in `create_material_node` function
+  - [ ] Update code to correctly convert properties parameter to map/dictionary
+  - [ ] Add additional error handling for material node creation
+  - [ ] Verify fix with integration tests
+
+## Phase 4: BIMConverse - Graph RAG Implementation
+
+This phase focuses on developing the BIMConverse system to enable natural language interaction with the IFC knowledge graph.
+
+### Tasks:
+
+- [ ] **Setup Development Environment**
+  - [ ] Install Node.js and npm 
+  - [ ] Create Next.js application structure
+  - [ ] Set up Tailwind CSS for styling
+  - [ ] Configure TypeScript
+  - [ ] Install Neo4j JavaScript driver
+
+- [ ] **Build Core RAG Components**
+  - [ ] Create Neo4j connection module
+  - [ ] Implement OpenAI API integration
+  - [ ] Design schema extraction utilities
+  - [ ] Develop conversation history management
+  - [ ] Build prompt engineering module
+
+- [ ] **Implement Natural Language to Cypher Pipeline**
+  - [ ] Extract and format graph schema for prompts
+  - [ ] Create Cypher generation function with LLM
+  - [ ] Implement Cypher cleaning and validation
+  - [ ] Add query execution module
+  - [ ] Develop result processing utilities
+
+- [ ] **Design User Interface**
+  - [ ] Create chat interface components
+  - [ ] Build configuration panel
+  - [ ] Implement schema visualization
+  - [ ] Add result formatting components
+  - [ ] Design responsive layout
+
+- [ ] **Develop Domain-Specific Few-Shot Examples**
+  - [ ] Create spatial relationship queries
+  - [ ] Add material property queries
+  - [ ] Implement building performance queries
+  - [ ] Design topological relationship queries
+  - [ ] Develop component-related queries
+
+- [ ] **Optimize Query Performance**
+  - [ ] Implement caching mechanisms
+  - [ ] Add result pagination
+  - [ ] Create Neo4j index recommendations
+  - [ ] Optimize complex queries
+  - [ ] Implement query timeout handling
+
+- [ ] **Testing and Validation**
+  - [ ] Test with small knowledge graphs
+  - [ ] Validate against complete building models
+  - [ ] Perform user experience testing
+  - [ ] Measure response times
+  - [ ] Test with various query complexities
+
+## Phase 5: Advanced Query Library and Documentation
+
+This phase focuses on expanding the query capabilities and documentation.
 
 ### Tasks:
 
@@ -163,12 +237,12 @@ This final phase focuses on creating utilities to make the knowledge graph usefu
   - [ ] Implement path finding queries
   - [ ] Add building performance queries
 
-- [ ] **Develop Query API**
-  - [ ] Create API module
-  - [ ] Implement parameterized queries
-  - [ ] Add result formatting
-  - [ ] Create visualization helpers
-  - [ ] Implement export functions
+- [ ] **Enhance BIMConverse Capabilities**
+  - [ ] Add multi-model querying
+  - [ ] Implement cross-model comparison
+  - [ ] Add semantic similarity search
+  - [ ] Develop query templates for common tasks
+  - [ ] Create query analytics dashboard
 
 - [ ] **Documentation**
   - [ ] Create user guide
@@ -184,7 +258,7 @@ This final phase focuses on creating utilities to make the knowledge graph usefu
   - [ ] Add additional tests as needed
   - [ ] Finalize documentation
 
-## Phase 5: Extensions and Future Work
+## Phase 6: Extensions and Future Work
 
 Potential areas for future development beyond the core implementation.
 
@@ -207,12 +281,6 @@ Potential areas for future development beyond the core implementation.
   - [ ] Implement REST API
   - [ ] Add GraphQL endpoint
 
-- [ ] **Cloud Deployment**
-  - [ ] Containerization
-  - [ ] Cloud environment setup
-  - [ ] Scaling configuration
-  - [ ] CI/CD pipeline
-
 - [ ] **Process Improvements**
   - [ ] Add resumable operations for interrupted conversions
   - [ ] Implement incremental updates for modified IFC files
@@ -225,9 +293,23 @@ The project has successfully completed:
 - ✅ Phase 0: Environment Setup
 - ✅ Phase 1: Basic IFC Parsing and Schema Definition
 - ✅ Phase 2: Topological Analysis and Enhancement
-- ✅ Phase 3: Building the Knowledge Graph Pipeline (Domain Enrichment and Integration Testing completed)
+- ✅ Phase 3: Building the Knowledge Graph Pipeline
+- ⏳ Phase 3.5: Issue Resolution (in progress)
+- 🔜 Phase 4: BIMConverse - Graph RAG Implementation (next priority)
 
-Key components now implemented:
+### Integration Test Results (May 2025)
+
+Recent integration tests have verified the successful creation of a knowledge graph with:
+- 306 nodes representing IFC elements
+- 2328 relationships between these elements
+- 17 distinct labels
+- 26 property keys
+
+### Known Issues
+
+1. **Material Node Creation**: A type mismatch occurs when creating material nodes in the `create_material_node` function in `ifc_to_graph_mapper.py`. The error shows that a string is being passed where a map (dictionary) is expected. This affects material associations but doesn't prevent the core graph from being created.
+
+### Key components now implemented:
 1. IFC Parser for extracting entities, relationships, and properties from IFC files
 2. Neo4j schema definition with appropriate node labels and relationship types
 3. Database connector for Neo4j with transaction management and batch processing
@@ -238,6 +320,9 @@ Key components now implemented:
 8. Performance monitoring for database operations and data loading
 9. Parallel processing for improved performance with multi-threading
 10. Domain-specific enrichment with building system classification, material properties, performance properties, and semantic tagging
-11. **Integration testing of the full pipeline is complete and robust.**
+11. IFC optimization tools for reducing file sizes and improving processing speed
+12. Debug testing tools with detailed error reporting
 
-The next focus is on building a query library, API, and comprehensive documentation to make the knowledge graph more accessible and useful for end users. 
+The next priorities are:
+1. Fix the material node creation issue (Phase 3.5)
+2. Implement BIMConverse Graph RAG system for natural language interaction with the knowledge graph (Phase 4) 

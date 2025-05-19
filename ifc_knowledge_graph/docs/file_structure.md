@@ -1,10 +1,11 @@
 ## Project Structure Update (May 2025)
 
 **Current Status:**
-- The pipeline for converting IFC to Neo4j is complete and robust, including domain-specific enrichment and full integration testing.
+- The pipeline for converting IFC to Neo4j is complete and functional, with proven integration test results.
+- Recent integration tests successfully created a knowledge graph with 306 nodes and 2328 relationships.
 - The codebase is now ready for advanced querying, API development, and comprehensive documentation.
-- The `examples/` directory demonstrates domain enrichment and graph capabilities.
-- The `tests/` directory includes robust integration and end-to-end tests, ensuring reliability.
+- New optimization tools have been added to reduce IFC file sizes and improve processing speed.
+- There is a non-critical issue with material node creation that affects material associations but doesn't prevent the core graph from being created.
 
 ---
 
@@ -31,7 +32,8 @@ ifc_knowledge_graph/
 ├── README.md              # Project overview and instructions
 ├── requirements.txt       # Python dependencies
 ├── src/                   # Source code
-├── tests/                 # Test files (now includes robust integration tests)
+├── tests/                 # Test files (now includes successful integration tests)
+├── tools/                 # Optimization and utility tools
 ├── topological_test.log   # Log file for topological tests
 └── venv/                  # Virtual environment (not tracked in Git)
 ```
@@ -45,7 +47,8 @@ The data directory stores IFC model files and other data used by the application
 ```
 data/
 └── ifc_files/             # IFC model files
-    └── Duplex_A_20110907.ifc # Sample IFC file (example, actual files may vary)
+    ├── Duplex_A_20110907.ifc        # Sample IFC file (example, actual files may vary)
+    └── Duplex_A_20110907_optimized.ifc # Optimized version of the IFC file
 ```
 
 ### `docs/`
@@ -55,6 +58,7 @@ The docs directory contains all project documentation.
 ```
 docs/
 ├── concept.md             # Conceptual overview of the project
+├── currentappstatus.md    # Current status of the application
 ├── file_structure.md      # This document - explaining project structure
 ├── graph_quality_analysis.md # Documentation on graph quality analysis
 ├── implementation_plan.md # Implementation phases and tasks
@@ -132,10 +136,12 @@ The tests directory contains all tests for the application.
 ```
 tests/
 ├── __init__.py            # Tests package initialization
+├── debug_integration_tests.py # Script for running integration tests with improved error handling
 ├── test_check_nodes.py    # Tests for checking nodes
 ├── test_direct_connection.py # Test for direct Neo4j connection
 ├── test_graph_quality.py  # Tests for graph quality
 ├── test_ifc_parser.py     # Tests for IFC parser
+├── test_integration_optimized.py # Optimized integration tests (successfully creates 306 nodes, 2328 relationships)
 ├── test_neo4j_connection.py # Tests for Neo4j connection
 ├── test_neo4j_connector.py # Tests for Neo4j connector
 ├── test_neo4j_manual.py   # Manual tests for Neo4j
@@ -147,6 +153,17 @@ tests/
 ├── test_standalone_parallel.py # Standalone parallel processing tests
 ├── test_topological_features.py # Tests for topological features
 └── test_topology.py       # Tests for topology module
+```
+
+### `tools/`
+
+The tools directory contains utility scripts and optimizers.
+
+```
+tools/
+├── ifc_optimize.py        # Tool for optimizing IFC files by removing duplicate geometry
+├── optimize_all_ifcs.py   # Script for batch processing multiple IFC files
+└── clear_database.py      # Utility to clear the Neo4j database
 ```
 
 ## Module Purposes
@@ -177,6 +194,12 @@ tests/
 
 6.  **`src/ifc_to_graph/processor.py`**: Coordinates the entire IFC to Neo4j conversion process, utilizing the parser, topology, and database modules.
 
+### Tool and Utility Modules
+
+1.  **`tools/ifc_optimize.py`**: A tool for optimizing IFC files by removing duplicate geometry instances, which can reduce file sizes by approximately 30%.
+2.  **`tools/optimize_all_ifcs.py`**: A script for batch processing multiple IFC files in parallel.
+3.  **`tools/clear_database.py`**: A utility script to clear the Neo4j database before running tests.
+
 ### Test and Utility Files (Root Level)
 
 1.  **`main.py`**: Main entry point for the application, providing a command-line interface.
@@ -198,14 +221,25 @@ The project is structured to support the following development workflow:
 
 1.  **Setup**: Follow the `neo4j_setup_guide.md` to prepare the database environment.
 2.  **Data Preparation**: Place IFC model files in the `ifc_knowledge_graph/data/ifc_files/` directory.
-3.  **Model Parsing**: Use the `parser` module (`src/ifc_to_graph/parser/`) to extract information from IFC files.
-4.  **Topological Analysis**: Use the `topology` module (`src/ifc_to_graph/topology/`) to analyze spatial relationships.
-5.  **Database Storage**: Use the `database` module (`src/ifc_to_graph/database/`) to store the extracted information in Neo4j.
-6.  **Query and Analysis**: Use Neo4j queries (Cypher) to analyze and visualize the building information.
+3.  **Optimization**: Optionally use `tools/ifc_optimize.py` to reduce IFC file size before processing.
+4.  **Model Parsing**: Use the `parser` module (`src/ifc_to_graph/parser/`) to extract information from IFC files.
+5.  **Topological Analysis**: Use the `topology` module (`src/ifc_to_graph/topology/`) to analyze spatial relationships.
+6.  **Database Storage**: Use the `database` module (`src/ifc_to_graph/database/`) to store the extracted information in Neo4j.
+7.  **Query and Analysis**: Use Neo4j queries (Cypher) to analyze and visualize the building information.
+
+## Integration Test Results
+
+Recent integration tests have verified the successful creation of a knowledge graph with:
+- 306 nodes representing IFC elements
+- 2328 relationships between these elements
+- 17 distinct labels
+- 26 property keys
+
+There is a known issue with material node creation that affects material associations but doesn't prevent the core graph from being created.
 
 ## Future Structure Additions
 
-(This section can be updated as the project evolves further. The `examples/`, `output/`, and `performance_reports/` directories have been added based on the current structure.)
+(This section can be updated as the project evolves further.)
 
 1.  **`scripts/`**: Directory for utility scripts for data processing, database setup, etc.
 2.  **`docs/api/`**: API documentation generated from source code.
