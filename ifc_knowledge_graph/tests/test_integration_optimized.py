@@ -132,9 +132,7 @@ class TestIntegrationOptimized(unittest.TestCase):
                 clear_existing=CLEAR_DATABASE,
                 batch_size=BATCH_SIZE,
                 parallel_batch_size=600,  # Even larger for speed
-                save_performance_report=True,
-                parallel_workers=PARALLEL_WORKERS,  # Use configured worker count
-                optimize_memory=False  # Optimize for speed rather than memory
+                save_performance_report=True
             )
             
             # Get final memory usage
