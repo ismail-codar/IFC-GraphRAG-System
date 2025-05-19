@@ -557,10 +557,10 @@ class IfcParser:
     
     def extract_material_info(self, element: Any) -> List[Dict[str, Any]]:
         """
-        Extract material information for an element.
+        Extract material information from an IFC element.
         
         Args:
-            element: The IFC element to extract material info from
+            element: The IFC element
             
         Returns:
             List of dictionaries with material information
@@ -568,63 +568,135 @@ class IfcParser:
         materials = []
         
         try:
-            for rel in self.file.by_type("IfcRelAssociatesMaterial"):
-                if element in rel.RelatedObjects:
-                    material = rel.RelatingMaterial
-                    
-                    if material.is_a("IfcMaterial"):
-                        # Single material
-                        materials.append({
-                            "name": material.Name,
-                            "type": "Single",
-                            "id": material.id()
-                        })
-                    
-                    elif material.is_a("IfcMaterialList"):
-                        # Material list (multiple materials)
-                        for mat in material.Materials:
-                            materials.append({
-                                "name": mat.Name,
-                                "type": "List",
-                                "id": mat.id()
-                            })
-                    
-                    elif material.is_a("IfcMaterialLayerSetUsage"):
-                        # Material layers with specific usage (e.g., wall layers)
-                        layer_set = material.ForLayerSet
+            # Try to get materials through IfcRelAssociatesMaterial
+            if hasattr(element, "HasAssociations"):
+                for rel in element.HasAssociations:
+                    if rel.is_a("IfcRelAssociatesMaterial"):
+                        material = rel.RelatingMaterial
                         
-                        # Get the orientation information
-                        dir_sense = material.DirectionSense
-                        
-                        for i, layer in enumerate(layer_set.MaterialLayers):
-                            if layer.Material:
-                                materials.append({
-                                    "name": layer.Material.Name,
-                                    "type": "Layer",
-                                    "id": layer.Material.id(),
-                                    "thickness": layer.LayerThickness,
-                                    "position": i,
-                                    "direction_sense": dir_sense,
-                                    "is_ventilated": layer.IsVentilated if hasattr(layer, "IsVentilated") else None
-                                })
-                    
-                    elif material.is_a("IfcMaterialLayerSet"):
-                        # Material layer set without usage information
-                        for i, layer in enumerate(material.MaterialLayers):
-                            if layer.Material:
-                                materials.append({
-                                    "name": layer.Material.Name,
-                                    "type": "Layer",
-                                    "id": layer.Material.id(),
-                                    "thickness": layer.LayerThickness,
-                                    "position": i,
-                                    "is_ventilated": layer.IsVentilated if hasattr(layer, "IsVentilated") else None
-                                })
-        
+                        # Handle different material association types
+                        if material.is_a("IfcMaterial"):
+                            # Single material
+                            mat_info = {
+                                "Name": material.Name,
+                                "Type": "Material"
+                            }
+                            materials.append(mat_info)
+                            
+                        elif material.is_a("IfcMaterialList"):
+                            # List of materials
+                            for mat in material.Materials:
+                                mat_info = {
+                                    "Name": mat.Name,
+                                    "Type": "Material"
+                                }
+                                materials.append(mat_info)
+                                
+                        elif material.is_a("IfcMaterialLayerSetUsage"):
+                            # Material layer set usage (common for walls)
+                            layer_set = material.ForLayerSet
+                            for layer in layer_set.MaterialLayers:
+                                if layer.Material:
+                                    mat_info = {
+                                        "Name": layer.Material.Name,
+                                        "Type": "MaterialLayer",
+                                        "LayerThickness": layer.LayerThickness
+                                    }
+                                    materials.append(mat_info)
+                                    
+                        elif material.is_a("IfcMaterialLayerSet"):
+                            # Material layer set
+                            for layer in material.MaterialLayers:
+                                if layer.Material:
+                                    mat_info = {
+                                        "Name": layer.Material.Name,
+                                        "Type": "MaterialLayer",
+                                        "LayerThickness": layer.LayerThickness
+                                    }
+                                    materials.append(mat_info)
+                                    
+                        elif material.is_a("IfcMaterialProfileSetUsage"):
+                            # Material profile set usage (common for beams, columns)
+                            profile_set = material.ForProfileSet
+                            for profile in profile_set.MaterialProfiles:
+                                if profile.Material:
+                                    mat_info = {
+                                        "Name": profile.Material.Name,
+                                        "Type": "MaterialProfile"
+                                    }
+                                    materials.append(mat_info)
+                                    
+                        elif material.is_a("IfcMaterialProfileSet"):
+                            # Material profile set
+                            for profile in material.MaterialProfiles:
+                                if profile.Material:
+                                    mat_info = {
+                                        "Name": profile.Material.Name,
+                                        "Type": "MaterialProfile"
+                                    }
+                                    materials.append(mat_info)
         except Exception as e:
-            logger.error(f"Error extracting material info for element {element.GlobalId if element else None}: {str(e)}")
-        
+            logger.error(f"Error extracting material information: {str(e)}")
+            
         return materials
+        
+    def get_element_materials(self, element: Any) -> List[Dict[str, Any]]:
+        """
+        Alias for extract_material_info for compatibility with the processor.
+        
+        Args:
+            element: The IFC element
+            
+        Returns:
+            List of dictionaries with material information
+        """
+        return self.extract_material_info(element)
+    
+    def get_element_container(self, element: Any) -> Optional[Dict[str, Any]]:
+        """
+        Get the spatial structure container (storey, space, etc.) for an element.
+        
+        Args:
+            element: The IFC element
+            
+        Returns:
+            Dictionary with container information or None if not found
+        """
+        try:
+            # Look through IfcRelContainedInSpatialStructure relationships
+            for rel in self.file.by_type("IfcRelContainedInSpatialStructure"):
+                if element in rel.RelatedElements:
+                    container = rel.RelatingStructure
+                    
+                    container_data = {
+                        "GlobalId": container.GlobalId,
+                        "Name": container.Name if container.Name else "Unnamed Container",
+                        "Description": container.Description if container.Description else "",
+                        "IFCType": container.is_a()
+                    }
+                    
+                    return container_data
+                    
+            # If not found through direct containment, try aggregation
+            for rel in self.file.by_type("IfcRelAggregates"):
+                if element in rel.RelatedObjects:
+                    container = rel.RelatingObject
+                    
+                    container_data = {
+                        "GlobalId": container.GlobalId,
+                        "Name": container.Name if container.Name else "Unnamed Container",
+                        "Description": container.Description if container.Description else "",
+                        "IFCType": container.is_a()
+                    }
+                    
+                    return container_data
+            
+            # No container found
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting element container: {str(e)}")
+            return None
     
     def get_schema_version(self) -> str:
         """

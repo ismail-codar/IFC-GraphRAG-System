@@ -218,50 +218,74 @@ class IfcToGraphMapper:
             logger.error(f"Error creating property node: {str(e)}")
             return None
     
-    def create_property_set_node(self, pset_name: str, pset_data: Dict[str, Any]) -> str:
+    def create_property_set_node(
+        self, 
+        session, 
+        name: str, 
+        properties: Dict[str, Any],
+        element_id: str
+    ) -> str:
         """
         Create a property set node with associated property nodes.
         
         Args:
-            pset_name: Name of the property set
-            pset_data: Dictionary of property name-value pairs
+            session: Neo4j session
+            name: Name of the property set
+            properties: Dictionary of property name-value pairs
+            element_id: GlobalId of the element to link to
             
         Returns:
             ID of the created property set node
         """
         # Generate Cypher parameters for property set
         params = {
-            "name": pset_name,
-            "id": f"pset_{pset_name.replace(' ', '_')}_{hash(pset_name)}"  # Generate a deterministic ID
+            "name": name,
+            "id": f"pset_{name.replace(' ', '_')}_{hash(name)}",  # Generate a deterministic ID
+            "element_id": element_id
         }
         
-        # Create property set node
+        # Create property set node and link it to the element in a single query
         query = """
         MERGE (ps:PropertySet {id: $id})
         SET ps.name = $name
+        WITH ps
+        MATCH (e)
+        WHERE e.GlobalId = $element_id
+        MERGE (e)-[:HAS_PROPERTY_SET]->(ps)
         RETURN ps.id as PsetId
         """
         
         try:
-            # Execute query to create property set
-            result = self.connector.run_query(query, params)
-            if not result or not result[0].get('PsetId'):
+            # Execute query to create property set and link it to element
+            result = session.run(query, params).single()
+            if not result or not result.get('PsetId'):
                 return None
+                
+            pset_id = result['PsetId']
             
-            pset_id = result[0]['PsetId']
-            
-            # Create property nodes and relationships
-            for prop_name, prop_value in pset_data.items():
-                # Create property node
+            # Add each property to the property set
+            for prop_name, prop_value in properties.items():
+                # Skip None values
+                if prop_value is None:
+                    continue
+                    
+                # Format value for Neo4j
+                try:
+                    formatted_value = format_property_value(prop_value)
+                except Exception as e:
+                    logger.warning(f"Error formatting property {prop_name}: {str(e)}")
+                    continue
+                
+                # Create property node and link it to property set
                 prop_params = {
-                    "name": prop_name,
-                    "value": format_property_value(prop_value),
                     "pset_id": pset_id,
-                    "prop_id": f"prop_{prop_name.replace(' ', '_')}_{pset_id}"  # Generate a deterministic ID
+                    "name": prop_name,
+                    "value": formatted_value,
+                    "id": f"prop_{prop_name}_{hash(prop_name + str(prop_value))}"
                 }
                 
                 prop_query = """
-                MERGE (p:Property {id: $prop_id})
+                MERGE (p:Property {id: $id})
                 SET p.name = $name, p.value = $value
                 WITH p
                 MATCH (ps:PropertySet {id: $pset_id})
@@ -269,10 +293,13 @@ class IfcToGraphMapper:
                 RETURN p.id as PropId
                 """
                 
-                self.connector.run_query(prop_query, prop_params)
+                try:
+                    session.run(prop_query, prop_params)
+                except Exception as e:
+                    logger.warning(f"Failed to create property {prop_name}: {str(e)}")
             
             return pset_id
-        
+            
         except Exception as e:
             logger.error(f"Error creating property set node: {str(e)}")
             return None
@@ -329,23 +356,32 @@ class IfcToGraphMapper:
             logger.warning("Missing Name field in material data")
             return None
         
+        # Extract material name
+        material_name = material_data.get("Name")
+        if not material_name:
+            logger.warning("Material name is empty or None")
+            return None
+        
         # Format properties for Neo4j
         properties = {}
         for key, value in material_data.items():
             prop_name = PROPERTY_MAPPING.get(key, key)
-            properties[prop_name] = format_property_value(value)
+            formatted_value = format_property_value(value)
+            if formatted_value is not None:
+                properties[prop_name] = formatted_value
         
-        # Generate Cypher parameters
-        params = {
-            "props": properties
-        }
-        
-        # Generate Cypher query
+        # Generate Cypher query with direct parameters instead of nested props
         query = """
-        MERGE (m:Material {name: $props.name})
-        SET m = $props
+        MERGE (m:Material {name: $name})
+        SET m += $properties
         RETURN m.name as Name
         """
+        
+        # Generate parameters
+        params = {
+            "name": material_name,
+            "properties": properties
+        }
         
         try:
             # Execute query
@@ -467,22 +503,71 @@ class IfcToGraphMapper:
             
     def get_relationship_count_by_type(self, rel_type: str) -> int:
         """
-        Get the count of relationships with a specific type.
+        Get the count of relationships by type.
         
         Args:
-            rel_type: Relationship type to count
+            rel_type: Relationship type
             
         Returns:
-            Integer count of relationships with that type
+            Count of relationships of the specified type
         """
-        query = f"""
-        MATCH ()-[r:{rel_type}]->()
+        query = """
+        MATCH ()-[r:`{type}`]->()
         RETURN count(r) as count
-        """
+        """.format(type=rel_type.replace('`', ''))
         
         try:
             result = self.connector.run_query(query)
-            return result[0]["count"] if result else 0
+            if result and result[0].get('count') is not None:
+                return result[0]['count']
+            return 0
         except Exception as e:
-            logger.error(f"Error getting count for relationship type {rel_type}: {str(e)}")
-            return 0 
+            logger.error(f"Error getting relationship count by type: {str(e)}")
+            return 0
+            
+    def create_property_set(self, pset: str, element_id: str) -> str:
+        """
+        Alias for create_property_set_node for compatibility with the processor.
+        
+        Args:
+            pset: Name of property set
+            element_id: Element ID to attach property set to
+            
+        Returns:
+            ID of created property set node
+        """
+        # Get a session to use
+        with self.connector.get_session() as session:
+            # The session should be compatible with the create_property_set_node method
+            return self.create_property_set_node(
+                session=session,
+                name=pset,
+                properties={},  # Empty properties as processor handles this differently
+                element_id=element_id
+            ) 
+            
+    def create_material(self, material_data: Dict[str, Any], element_id: str) -> str:
+        """
+        Alias for create_material_node and link_element_to_material for compatibility with the processor.
+        
+        Args:
+            material_data: Dictionary with material properties
+            element_id: Element ID to link material to
+            
+        Returns:
+            Name of the created material node
+        """
+        # Get material name
+        material_name = material_data.get("Name")
+        if not material_name:
+            logger.warning("Missing Name field in material data")
+            return None
+            
+        # Create material node
+        material_id = self.create_material_node(material_data)
+        
+        # Link element to material if both IDs exist
+        if material_id and element_id:
+            self.link_element_to_material(element_id, material_id)
+            
+        return material_id 

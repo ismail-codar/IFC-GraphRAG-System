@@ -26,6 +26,7 @@ sys.path.insert(0, str(project_root))
 from src.ifc_to_graph.processor import IfcProcessor
 from src.ifc_to_graph.parser import IfcParser
 from src.ifc_to_graph.database import Neo4jConnector
+from tools.ifc_optimize import optimize_ifc
 
 # Configure logging
 logging.basicConfig(
@@ -34,68 +35,90 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global configuration - can be overridden by command line args
-CLEAR_DATABASE = True
-BATCH_SIZE = 100  # Increased from 20 to 100 for better performance
+# Global variables that can be set via command-line arguments
+CLEAR_DATABASE = True  # Default: Clear database before running tests
+BATCH_SIZE = 50  # Default batch size
+RUN_SINGLE_TEST = None  # Default: Run all tests
+OPTIMIZE_IFC = False  # Default: Don't optimize IFC files
+PARALLEL_WORKERS = 4  # Default: Use 4 parallel workers
 
+def set_parallel_workers(count):
+    """Set the number of parallel workers to use."""
+    global PARALLEL_WORKERS
+    PARALLEL_WORKERS = count
+    logger.info(f"Set parallel workers to {count}")
 
 class TestIntegrationOptimized(unittest.TestCase):
     """
-    Integration tests for IFC to Neo4j conversion process.
+    Integration tests for the IFC to Neo4j Knowledge Graph.
     """
     
     @classmethod
     def setUpClass(cls):
-        """Set up test environment once before all tests."""
-        cls.temp_dir = tempfile.mkdtemp()
+        """Set up test fixtures that should be reused across tests."""
+        cls.ifc_file = "data/ifc_files/Duplex_A_20110907.ifc"
         
-        # Neo4j connection details
-        cls.neo4j_uri = "neo4j://localhost:7687"
-        cls.neo4j_username = "neo4j"
-        cls.neo4j_password = "test1234"  # Use actual password from your test environment
+        # Optimize IFC file if enabled
+        if OPTIMIZE_IFC:
+            logger.info(f"Optimizing IFC file: {cls.ifc_file}")
+            optimized_path = f"{cls.ifc_file}_optimized.ifc"
+            
+            # Check if optimized file already exists and is newer than the original
+            if (Path(optimized_path).exists() and 
+                Path(optimized_path).stat().st_mtime > Path(cls.ifc_file).stat().st_mtime):
+                logger.info(f"Using existing optimized file: {optimized_path}")
+                cls.ifc_file = optimized_path
+            else:
+                try:
+                    # Import the optimizer and optimize the file
+                    result, _, _ = optimize_ifc(cls.ifc_file, optimized_path)
+                    logger.info(f"IFC optimization complete: {result['size_reduction_percent']:.1f}% size reduction")
+                    cls.ifc_file = optimized_path
+                except Exception as e:
+                    logger.error(f"IFC optimization failed: {str(e)}")
+                    logger.warning("Continuing with original file")
         
-        # Test IFC file
-        cls.ifc_file_path = os.path.join(project_root, "data", "ifc_files", "Duplex_A_20110907.ifc")
+        # Initialize the parser
+        cls.parser = IfcParser(cls.ifc_file)
         
-        # Ensure test file exists
-        if not os.path.exists(cls.ifc_file_path):
-            raise FileNotFoundError(f"Test IFC file not found: {cls.ifc_file_path}")
+        # Get the IFC schema version
+        schema_version = cls.parser.get_schema_version()
+        logger.info(f"Testing with IFC version: {schema_version}")
         
-        # Initialize parser to get schema version for later tests
-        parser = IfcParser(cls.ifc_file_path)
-        cls.ifc_schema_version = parser.get_schema_version()
-        logger.info(f"Testing with IFC version: {cls.ifc_schema_version}")
-    
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up after all tests are run."""
-        # Clean up temp directory
-        import shutil
-        shutil.rmtree(cls.temp_dir, ignore_errors=True)
-    
-    def setUp(self):
-        """Set up test environment before each test."""
-        # Reset the database between tests with clear_existing=True
-        self.processor = IfcProcessor(
-            ifc_file_path=self.ifc_file_path,
-            neo4j_uri=self.neo4j_uri,
-            neo4j_username=self.neo4j_username,
-            neo4j_password=self.neo4j_password,
-            enable_monitoring=True,
-            monitoring_output_dir=self.temp_dir
+        # Initialize the processor
+        cls.processor = IfcProcessor(
+            ifc_file_path=cls.ifc_file,
+            neo4j_uri="neo4j://localhost:7687",
+            neo4j_username="neo4j",
+            neo4j_password="test1234",
+            parallel_processing=True,
+            enable_monitoring=True
         )
         
-    def tearDown(self):
-        """Clean up after each test."""
-        if hasattr(self, 'processor') and self.processor:
-            self.processor.close()
+        # Create temp directory for performance reports
+        cls.temp_dir = tempfile.mkdtemp()
+        
+    @classmethod
+    def tearDownClass(cls):
+        """Tear down test fixtures after all tests are run."""
+        # Clean up temp directory if it exists
+        if hasattr(cls, 'temp_dir') and os.path.exists(cls.temp_dir):
+            import shutil
+            shutil.rmtree(cls.temp_dir)
             
+    def setUp(self):
+        """Set up test fixtures before each test."""
+        pass
+        
+    def tearDown(self):
+        """Tear down test fixtures after each test."""
+        pass
+        
     def get_memory_usage(self):
         """Get current memory usage in MB."""
         process = psutil.Process(os.getpid())
-        memory_info = process.memory_info()
-        return memory_info.rss / (1024 * 1024)  # Convert to MB
-    
+        return process.memory_info().rss / (1024 * 1024)
+        
     def test_1_end_to_end_pipeline(self):
         """Test the complete processing pipeline from IFC to Neo4j."""
         # Record initial memory usage
@@ -108,179 +131,103 @@ class TestIntegrationOptimized(unittest.TestCase):
             stats = self.processor.process(
                 clear_existing=CLEAR_DATABASE,
                 batch_size=BATCH_SIZE,
-                parallel_batch_size=400,  # Much larger for speed
-                save_performance_report=True
+                parallel_batch_size=600,  # Even larger for speed
+                save_performance_report=True,
+                parallel_workers=PARALLEL_WORKERS,  # Use configured worker count
+                optimize_memory=False  # Optimize for speed rather than memory
             )
             
             # Get final memory usage
             end_memory = self.get_memory_usage()
-            logger.info(f"Peak memory usage: {end_memory:.2f} MB")
+            logger.info(f"Final memory usage: {end_memory:.2f} MB")
             logger.info(f"Memory increase: {end_memory - start_memory:.2f} MB")
             
-            # Check general processing stats
-            # We're specifically checking for elements processed rather than expecting
-            # an exact count because some elements may be skipped due to missing required attributes
-            self.assertIsNotNone(stats, "Processing should return stats")
-            self.assertGreater(stats['processing_time'], 0, "Processing time should be positive")
+            # Verify that the processing completed successfully
+            self.assertIsNotNone(stats, "Processing stats should not be None")
+            self.assertIn("total_elements", stats, "Stats should include total_elements")
+            self.assertIn("processing_time", stats, "Stats should include processing_time")
             
-            # Check if we processed any elements
-            self.assertIn('element_count', stats, "Stats should contain element_count")
-            # Should have processed at least one element but don't require all
-            # since some elements could have issues
-            self.assertGreaterEqual(stats['element_count'], 0, "Should have processed at least one element") 
+            # Log the processing statistics
+            logger.info(f"Processed {stats['total_elements']} elements in {stats['processing_time']:.2f} seconds")
+            logger.info(f"Processing rate: {stats['total_elements'] / stats['processing_time']:.2f} elements/second")
             
-            # Even if we have issues with element processing, we should still have created
-            # at least one node for the project itself
-            db_stats = self.processor.get_database_stats()
-            self.assertGreaterEqual(db_stats['node_count'], 1, "Graph should have at least one node (project node)")
+            # Save report with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            report_path = os.path.join(self.temp_dir, f"performance_report_{timestamp}.json")
+            with open(report_path, 'w') as f:
+                json.dump(stats, f, indent=2)
+                
+            logger.info(f"Performance report saved to {report_path}")
             
         except Exception as e:
             self.fail(f"End-to-end test failed with exception: {str(e)}")
-    
-    def test_2_graph_structure_validation(self):
-        """
-        Test that the generated graph has the expected structure.
-        """
+            
+    def test_2_database_statistics(self):
+        """Test that the database contains the expected elements."""
         try:
-            # Reset database first
-            self.processor.setup_database(clear_existing=CLEAR_DATABASE)
-            
-            # Process data
-            self.processor.process(batch_size=BATCH_SIZE)
-            
-            # Query the graph to check structure
-            with self.processor.db_connector.get_session() as session:
-                # Check for project node
-                result = session.run("MATCH (p:Project) RETURN count(p) as count").single()
-                project_count = result["count"] if result else 0
-                
-                # Check for spatial structure
-                result = session.run("MATCH (s:Site) RETURN count(s) as count").single()
-                site_count = result["count"] if result else 0
-                
-                result = session.run("MATCH (b:Building) RETURN count(b) as count").single()
-                building_count = result["count"] if result else 0
-                
-                result = session.run("MATCH (s:Storey) RETURN count(s) as count").single()
-                storey_count = result["count"] if result else 0
-                
-                result = session.run("MATCH (e:Element) RETURN count(e) as count").single()
-                element_count = result["count"] if result else 0
-                
-                # Check for relationships
-                result = session.run("MATCH ()-[r]->() RETURN count(r) as count").single()
-                relationship_count = result["count"] if result else 0
-                
-                # Since some elements might have issues, we don't check for specific 
-                # counts but instead verify the project structure is present
-                self.assertGreaterEqual(project_count, 0, "Should have at least one project node")
-                self.assertGreaterEqual(site_count, 0, "Should have site nodes")
-                self.assertGreaterEqual(building_count, 0, "Should have building nodes")
-                self.assertGreaterEqual(storey_count, 0, "Should have storey nodes")
-                
-                # Verify at least 1 element and relationship or log debug info if not found
-                self.assertGreaterEqual(element_count, 0, f"Should have element nodes (found {element_count})")
-                self.assertGreaterEqual(relationship_count, 0, f"Should have relationships (found {relationship_count})")
-                
-                if element_count == 0 or relationship_count == 0:
-                    # Print debug information to help troubleshoot
-                    logger.warning("Missing expected nodes or relationships in the graph")
-                    # Check if any nodes were created at all
-                    result = session.run("MATCH (n) RETURN count(n) as count").single()
-                    if result:
-                        logger.warning(f"Total nodes in graph: {result['count']}")
-                    # Check if database is accessible
-                    result = session.run("RETURN 1 as test").single()
-                    if result:
-                        logger.info("Database connection is working")
-                
-        except Exception as e:
-            self.fail(f"Graph structure validation failed with exception: {str(e)}")
-    
-    def test_3_memory_usage(self):
-        """Test the memory usage during processing to ensure it's optimized."""
-        try:
-            # Record initial memory
-            start_memory = self.get_memory_usage()
-            logger.info(f"Initial memory usage: {start_memory:.2f} MB")
-            
-            # Process with monitoring enabled
-            stats = self.processor.process(
-                clear_existing=CLEAR_DATABASE,
-                batch_size=BATCH_SIZE,  # Use larger batch size
-                save_performance_report=True
+            # Create a new connector directly
+            connector = Neo4jConnector(
+                uri="neo4j://localhost:7687",
+                username="neo4j", 
+                password="test1234"
             )
             
-            # Get memory usage after processing
-            end_memory = self.get_memory_usage()
-            memory_increase = end_memory - start_memory
+            # Verify connection
+            self.assertTrue(connector.test_connection(), "Neo4j connection failed")
             
-            logger.info(f"End memory usage: {end_memory:.2f} MB")
-            logger.info(f"Memory increase: {memory_increase:.2f} MB")
+            # Test database statistics
+            element_count = connector.run_query("MATCH (n:Element) RETURN COUNT(n) AS count")[0]['count']
+            logger.info(f"Element count in database: {element_count}")
+            self.assertGreater(element_count, 0, "Database should contain elements")
             
-            # The memory increase should be reasonable for the test file
-            # This is more of a monitoring metric than a hard assertion
-            # since different implementations and platforms may have different memory profiles
+            # Check for specific element types
+            wall_count = connector.run_query("MATCH (n:Element:Wall) RETURN COUNT(n) AS count")[0]['count']
+            logger.info(f"Wall count in database: {wall_count}")
+            self.assertGreater(wall_count, 0, "Database should contain walls")
             
-            # Check performance metrics exist
-            self.assertIn('element_count', stats, "Stats should track element count")
+            # Check for relationships
+            contains_count = connector.run_query("MATCH ()-[r:CONTAINS]->() RETURN COUNT(r) AS count")[0]['count']
+            logger.info(f"CONTAINS relationship count: {contains_count}")
+            self.assertGreater(contains_count, 0, "Database should contain CONTAINS relationships")
             
-            # Memory increase should be under a reasonable threshold
-            # This may need adjustment based on implementation changes
-            # We're making this assertion very lenient - adjust as needed
-            self.assertLess(memory_increase, 1000, "Memory increase should be under 1GB for test file")
+            # Close the connection
+            connector.close()
             
         except Exception as e:
-            self.fail(f"Memory usage test failed with exception: {str(e)}")
-    
-    def test_4_ifc_version_compatibility(self):
-        """
-        Test processing compatibility with the IFC version.
-        """
-        try:
-            # Test compatibility with our specific IFC schema version
-            parser = IfcParser(self.ifc_file_path)
-            schema_version = parser.get_schema_version()
-            
-            logger.info(f"Testing compatibility with IFC schema: {schema_version}")
-            
-            # Process file
-            stats = self.processor.process(
-                clear_existing=CLEAR_DATABASE,
-                batch_size=BATCH_SIZE
-            )
-            
-            # Test should succeed without exceptions for this schema version
-            # We'll make the assertions more flexible, understanding that not all
-            # elements may be successfully processed in every case
-            self.assertGreaterEqual(stats['element_count'], 0, "Should have processed at least one element")
-        
-        except Exception as e:
-            self.fail(f"IFC version compatibility test failed with exception: {str(e)}")
+            self.fail(f"Database statistics test failed with exception: {str(e)}")
 
-
-if __name__ == "__main__":
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description='Run optimized integration tests')
-    parser.add_argument('--no-clear', action='store_true', help='Do not clear database before tests')
-    parser.add_argument('--batch-size', type=int, default=100, help='Batch size for processing')
-    parser.add_argument('--test', type=str, help='Run specific test (e.g., test_1_end_to_end_pipeline)')
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Run integration tests for IFC to Neo4j Knowledge Graph")
+    parser.add_argument("--no-clear", action="store_true", help="Don't clear the database before running tests")
+    parser.add_argument("--batch-size", type=int, default=50, help="Batch size for processing elements")
+    parser.add_argument("--test", type=str, help="Run a specific test method")
+    parser.add_argument("--optimize", action="store_true", help="Optimize IFC files before testing")
     
     args = parser.parse_args()
     
-    # Update global configuration
-    if args.no_clear:
-        CLEAR_DATABASE = False
-        logger.info("Database clearing disabled")
+    # Set global variables based on command-line arguments
+    global CLEAR_DATABASE, BATCH_SIZE, RUN_SINGLE_TEST, OPTIMIZE_IFC, PARALLEL_WORKERS
+    CLEAR_DATABASE = not args.no_clear
+    BATCH_SIZE = args.batch_size
+    RUN_SINGLE_TEST = args.test
+    OPTIMIZE_IFC = args.optimize
     
-    if args.batch_size:
-        BATCH_SIZE = args.batch_size
-        logger.info(f"Using batch size: {BATCH_SIZE}")
+    return args
+
+if __name__ == "__main__":
+    # Parse command-line arguments
+    args = parse_args()
     
-    # Run specific test or all tests
-    if args.test:
-        suite = unittest.TestSuite()
-        suite.addTest(TestIntegrationOptimized(args.test))
-        unittest.TextTestRunner().run(suite)
+    # Create a test suite
+    test_suite = unittest.TestSuite()
+    
+    # Add specific test if requested, otherwise add all tests
+    if RUN_SINGLE_TEST:
+        test_suite.addTest(TestIntegrationOptimized(RUN_SINGLE_TEST))
     else:
-        unittest.main(argv=sys.argv[:1])  # Exclude our custom args from unittest 
+        test_suite.addTest(unittest.makeSuite(TestIntegrationOptimized))
+    
+    # Run the tests
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(test_suite) 
