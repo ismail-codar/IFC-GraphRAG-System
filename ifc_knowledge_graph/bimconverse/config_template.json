@@ -1,0 +1,47 @@
+{
+  "project_name": "Sample Building Project",
+  "description": "Configuration for BIMConverse GraphRAG",
+  
+  "neo4j": {
+    "uri": "neo4j://localhost:7687",
+    "username": "neo4j",
+    "password": "test1234",
+    "database": "neo4j"
+  },
+  
+  "openai": {
+    "api_key": "",
+    "embedding_model": "text-embedding-3-large",
+    "llm_model": "gpt-4o",
+    "temperature": 0.1
+  },
+  
+  "graph_schema": {
+    "node_labels": [
+      "Project", "Building", "Storey", "Space", "Element", 
+      "Wall", "Window", "Door", "Material"
+    ],
+    "relationship_types": [
+      "CONTAINS", "ADJACENT", "IS_MADE_OF", "CONNECTED_TO"
+    ]
+  },
+  
+  "retrieval": {
+    "top_k": 5,
+    "similarity_threshold": 0.7,
+    "include_graph_context": true
+  },
+  
+  "ui": {
+    "title": "BIMConverse",
+    "description": "Query your building model using natural language",
+    "theme": "default",
+    "example_queries": [
+      "What spaces are on the ground floor?",
+      "Show me all doors between the kitchen and dining room",
+      "Which walls use concrete as a material?",
+      "What is the total area of all bedrooms?",
+      "How many windows are in the north-facing walls?"
+    ]
+  }
+} 

@@ -1,0 +1,23 @@
+# BIMConverse GraphRAG Requirements
+
+# Neo4j GraphRAG - main package
+neo4j-graphrag>=1.7.0
+
+# Core dependencies
+neo4j>=5.14.0
+openai>=1.12.0
+numpy>=1.26.0
+tqdm>=4.66.0
+python-dotenv>=1.0.0
+
+# UI dependencies
+gradio>=4.19.0
+plotly>=5.18.0
+rich>=13.6.0
+
+# Utilities
+pydantic>=2.5.0
+pillow>=10.1.0
+
+# Testing
+pytest>=7.4.0 
