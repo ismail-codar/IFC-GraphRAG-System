@@ -108,15 +108,29 @@ class PerformanceMonitor:
         if not self.enabled:
             return
         
-        with self._lock:
-            metric = PerformanceMetric(
-                name=name,
-                value=value,
-                unit=unit,
-                timestamp=time.time(),
-                context=context
-            )
-            self.metrics.append(metric)
+        try:
+            # Ensure value is a valid number, defaulting to 0.0 if None
+            if value is None:
+                logger.warning(f"Received None value for metric {name}, using 0.0 instead")
+                safe_value = 0.0
+            else:
+                try:
+                    safe_value = float(value)
+                except (TypeError, ValueError):
+                    logger.warning(f"Could not convert metric value {value} to float for {name}, using 0.0")
+                    safe_value = 0.0
+            
+            with self._lock:
+                metric = PerformanceMetric(
+                    name=name,
+                    value=safe_value,
+                    unit=unit,
+                    timestamp=time.time(),
+                    context=context
+                )
+                self.metrics.append(metric)
+        except Exception as e:
+            logger.warning(f"Error recording metric {name}: {str(e)}")
     
     def start_timer(self, name: str, context: Optional[Dict[str, Any]] = None) -> Callable:
         """
@@ -132,20 +146,33 @@ class PerformanceMonitor:
         if not self.enabled:
             return lambda: None
         
+        # Capture the start time
         start_time = time.time()
         
-        def stop_timer() -> float:
-            if not self.enabled:
-                return 0
-            
-            elapsed_time = (time.time() - start_time) * 1000  # Convert to milliseconds
-            self.record_metric(
-                name=f"{name}_duration",
-                value=elapsed_time,
-                unit="ms",
-                context=context
-            )
-            return elapsed_time
+        def stop_timer() -> Optional[float]:
+            """Stop timer and return elapsed time in milliseconds."""
+            try:
+                if not self.enabled:
+                    return None
+                
+                # Calculate elapsed time
+                elapsed_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+                
+                # Record the metric
+                try:
+                    self.record_metric(
+                        name=f"{name}_duration",
+                        value=elapsed_time,
+                        unit="ms",
+                        context=context
+                    )
+                except Exception as e:
+                    logger.warning(f"Error recording timer metric for {name}: {str(e)}")
+                
+                return elapsed_time
+            except Exception as e:
+                logger.warning(f"Error stopping timer for {name}: {str(e)}")
+                return None
         
         return stop_timer
     
@@ -160,25 +187,98 @@ class PerformanceMonitor:
         if not self.enabled:
             return
         
-        # Get current process memory usage
-        process = psutil.Process()
-        memory_info = process.memory_info()
+        try:
+            # Get current process memory usage
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            
+            # Record RSS (Resident Set Size)
+            try:
+                self.record_metric(
+                    name=f"{name}_memory_rss",
+                    value=memory_info.rss / (1024 * 1024),  # Convert to MB
+                    unit="MB",
+                    context=context
+                )
+            except Exception as e:
+                logger.warning(f"Error recording RSS memory metric for {name}: {str(e)}")
+            
+            # Record VMS (Virtual Memory Size)
+            try:
+                self.record_metric(
+                    name=f"{name}_memory_vms",
+                    value=memory_info.vms / (1024 * 1024),  # Convert to MB
+                    unit="MB",
+                    context=context
+                )
+            except Exception as e:
+                logger.warning(f"Error recording VMS memory metric for {name}: {str(e)}")
+                
+        except Exception as e:
+            logger.warning(f"Error measuring memory for {name}: {str(e)}")
+            
+    class MeasureTimeContext:
+        """Context manager for measuring execution time."""
         
-        # Record RSS (Resident Set Size)
-        self.record_metric(
-            name=f"{name}_memory_rss",
-            value=memory_info.rss / (1024 * 1024),  # Convert to MB
-            unit="MB",
-            context=context
-        )
+        def __init__(self, monitor, name, context=None):
+            self.monitor = monitor
+            self.name = name
+            self.context = context
+            self.stop_timer = None
+            
+        def __enter__(self):
+            if self.monitor and self.monitor.enabled:
+                self.stop_timer = self.monitor.start_timer(self.name, self.context)
+            return self
+            
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            if self.stop_timer:
+                try:
+                    self.stop_timer()
+                except Exception as e:
+                    logger.warning(f"Error stopping timer in measure_time context: {str(e)}")
+            
+    def measure_time(self, name: str, context: Optional[Dict[str, Any]] = None):
+        """
+        Context manager for measuring execution time.
         
-        # Record VMS (Virtual Memory Size)
-        self.record_metric(
-            name=f"{name}_memory_vms",
-            value=memory_info.vms / (1024 * 1024),  # Convert to MB
-            unit="MB",
-            context=context
-        )
+        Args:
+            name: Name for the time measurement
+            context: Additional contextual information
+            
+        Returns:
+            Context manager that times the execution of the block
+        """
+        return self.MeasureTimeContext(self, name, context)
+    
+    def get_last_timing(self, name: str) -> float:
+        """
+        Get the most recent timing for a specific metric.
+        
+        Args:
+            name: Name of the timing metric
+            
+        Returns:
+            The timing value in seconds or 0 if no timing exists
+        """
+        if not self.enabled or not self.metrics:
+            return 0
+            
+        try:
+            # Find the most recent timing with the given name
+            metric_name = f"{name}_duration"
+            
+            # Iterate in reverse to find the most recent one
+            for metric in reversed(self.metrics):
+                if metric.name == metric_name:
+                    # Convert from milliseconds to seconds
+                    return metric.value / 1000.0
+                    
+            # If we didn't find any matching metrics
+            return 0
+        except Exception as e:
+            logger.warning(f"Error getting last timing for {name}: {str(e)}")
+            return 0
     
     def get_metrics_by_name(self, name: str) -> List[PerformanceMetric]:
         """
@@ -344,13 +444,26 @@ def timing_decorator(monitor=None):
                 return func(*args, **kwargs)
                 
             timer_name = f"{func.__module__}.{func.__qualname__}"
-            stop_timer = perf_monitor.start_timer(timer_name)
             
             try:
+                # Start the timer safely
+                stop_timer = perf_monitor.start_timer(timer_name)
+                
+                # Execute the function
                 result = func(*args, **kwargs)
                 return result
+            except Exception as e:
+                # Log the exception but still allow it to propagate
+                logger.error(f"Error in {timer_name}: {str(e)}")
+                raise
             finally:
-                stop_timer()
+                # Stop the timer safely, handling the case where it might be None
+                # or might return None
+                try:
+                    if stop_timer:
+                        stop_timer()
+                except Exception as timer_error:
+                    logger.warning(f"Error stopping timer for {timer_name}: {str(timer_error)}")
         
         return wrapper
     

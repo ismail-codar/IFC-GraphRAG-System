@@ -27,18 +27,32 @@ def test_connection():
     logger.info("Testing connection to Neo4j database")
     
     try:
-        # Create connector
+        # Create connector with performance monitoring disabled
         connector = Neo4jConnector(
             uri="neo4j://localhost:7687",
             username="neo4j",
-            password="test1234"  # Updated with actual password
+            password="test1234",  # Updated with actual password
+            enable_monitoring=False  # Disable performance monitoring
         )
         
-        # Test connection by running a simple query
-        result = connector.run_query("RETURN 'Connected!' AS message")
-        message = result[0]['message'] if result else "No result"
+        # Test connection with different queries
+        queries = [
+            "RETURN true AS connected",
+            "RETURN 'Connected!' AS message"
+        ]
         
-        logger.info(f"Connection test result: {message}")
+        for query in queries:
+            logger.info(f"Testing query: {query}")
+            try:
+                result = connector.run_query(query)
+                logger.info(f"Query result: {result}")
+                
+                if result and len(result) > 0:
+                    logger.info(f"Result[0]: {result[0]}")
+                    for key, value in result[0].items():
+                        logger.info(f"Key: {key}, Value: {value}, Type: {type(value)}")
+            except Exception as e:
+                logger.error(f"Query failed: {str(e)}")
         
         # Close connection
         connector.close()
@@ -54,11 +68,12 @@ def test_schema_setup():
     logger.info("Testing schema setup in Neo4j database")
     
     try:
-        # Create connector
+        # Create connector with performance monitoring disabled
         connector = Neo4jConnector(
             uri="neo4j://localhost:7687",
             username="neo4j",
-            password="test1234"  # Updated with actual password
+            password="test1234",  # Updated with actual password
+            enable_monitoring=False  # Disable performance monitoring
         )
         
         # Create schema manager

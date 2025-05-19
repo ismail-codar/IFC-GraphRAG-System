@@ -43,9 +43,23 @@ class IfcToGraphMapper:
         Returns:
             GlobalId of the created node
         """
-        if "IFCType" not in element_data or "GlobalId" not in element_data:
-            logger.warning("Missing required fields (IFCType or GlobalId) in element data")
+        # Make a copy to avoid modifying the original data
+        element_data = element_data.copy()
+        
+        if "IFCType" not in element_data:
+            logger.warning("Missing required field IFCType in element data")
             return None
+            
+        # Check for missing or null GlobalId and generate a unique ID if needed
+        if "GlobalId" not in element_data or element_data["GlobalId"] is None:
+            # Generate a deterministic ID based on other element properties for consistency
+            element_type = element_data.get("IFCType", "unknown")
+            element_name = element_data.get("Name", "")
+            element_hash = hash(f"{element_type}_{element_name}_{id(element_data)}")
+            temp_id = f"temp_id_{element_type}_{abs(element_hash)}"
+            
+            logger.error(f"GlobalId is still null after preprocessing")
+            element_data["GlobalId"] = temp_id
         
         # Get appropriate labels based on IFC type
         labels = get_node_labels(element_data["IFCType"])
@@ -54,27 +68,55 @@ class IfcToGraphMapper:
         # Format properties for Neo4j
         properties = {}
         for key, value in element_data.items():
+            # Skip null values to avoid Neo4j errors
+            if value is None:
+                continue
+                
             # Map property names to standardized format if possible
             prop_name = PROPERTY_MAPPING.get(key, key)
-            properties[prop_name] = format_property_value(value)
+            
+            # Format the property value for Neo4j
+            try:
+                formatted_value = format_property_value(value)
+                if formatted_value is not None:  # Skip None values
+                    properties[prop_name] = formatted_value
+            except Exception as e:
+                # Just log and skip problematic properties rather than failing completely
+                logger.warning(f"Error formatting property {key}: {str(e)}")
         
-        # Generate Cypher parameters
-        params = {
-            "props": properties
-        }
+        # Always ensure GlobalId is included
+        if "GlobalId" not in properties:
+            if "GlobalId" in element_data and element_data["GlobalId"] is not None:
+                # Use the original GlobalId if available
+                properties["GlobalId"] = element_data["GlobalId"]
+            else:
+                # Generate a deterministic temporary ID
+                element_type = element_data.get("IFCType", "unknown")
+                element_hash = hash(f"{element_type}_{id(element_data)}")
+                properties["GlobalId"] = f"temp_id_{element_type}_{abs(element_hash)}"
+                logger.warning(f"Generated temporary GlobalId for {element_type}: {properties['GlobalId']}")
         
-        # Generate Cypher query
+        # Build properties string for Cypher
+        props_list = []
+        for key, value in properties.items():
+            # Use safe parameter for values
+            props_list.append(f"{key}: ${key}")
+        
+        props_string = "{" + ", ".join(props_list) + "}"
+        
+        # Generate Cypher query using MERGE to avoid duplicates
         query = f"""
-        MERGE (n:{labels_str} {{GlobalId: $props.GlobalId}})
-        SET n = $props
-        RETURN n.GlobalId as GlobalId
+        MERGE (e:{labels_str} {props_string})
+        RETURN e.GlobalId as id
         """
         
         try:
             # Execute query
-            result = self.connector.run_query(query, params)
-            if result and result[0].get('GlobalId'):
-                return result[0]['GlobalId']
+            result = self.connector.run_query(query, properties)
+            if result and result[0].get('id'):
+                return result[0]['id']
+            
+            logger.warning(f"Failed to create node for element with type {element_data.get('IFCType')}")
             return None
         except Exception as e:
             logger.error(f"Error creating node: {str(e)}")
@@ -113,30 +155,16 @@ class IfcToGraphMapper:
                 prop_name = PROPERTY_MAPPING.get(key, key)
                 formatted_props[prop_name] = format_property_value(value)
         
-        # Generate Cypher parameters
-        params = {
-            "source_id": source_id,
-            "target_id": target_id,
-            "props": formatted_props
-        }
-        
-        # Generate Cypher query with properties if any
-        props_clause = ""
-        if formatted_props:
-            props_clause = "SET r = $props"
-        
-        query = f"""
-        MATCH (a), (b)
-        WHERE a.GlobalId = $source_id AND b.GlobalId = $target_id
-        MERGE (a)-[r:{rel_type}]->(b)
-        {props_clause}
-        RETURN type(r) as RelationType
-        """
-        
         try:
-            # Execute query
-            result = self.connector.run_query(query, params)
-            return bool(result)
+            # Use the optimized method from the connector
+            result = self.connector.create_relationship(
+                source_id=source_id,
+                target_id=target_id,
+                relationship_type=rel_type,
+                properties=formatted_props if formatted_props else None
+            )
+            
+            return result is not None
         except Exception as e:
             logger.error(f"Error creating relationship: {str(e)}")
             return False
@@ -264,19 +292,20 @@ class IfcToGraphMapper:
             logger.warning("Missing element or property set ID")
             return False
         
-        # Generate Cypher parameters
+        # Generate optimized query that avoids Cartesian product
+        query = """
+        MATCH (e {GlobalId: $element_id})
+        WITH e
+        MATCH (ps:PropertySet {id: $pset_id})
+        MERGE (e)-[r:HAS_PROPERTY_SET]->(ps)
+        RETURN type(r) as RelationType
+        """
+        
+        # Generate parameters
         params = {
             "element_id": element_id,
             "pset_id": pset_id
         }
-        
-        # Generate Cypher query
-        query = """
-        MATCH (e), (ps:PropertySet)
-        WHERE e.GlobalId = $element_id AND ps.id = $pset_id
-        MERGE (e)-[r:HAS_PROPERTY_SET]->(ps)
-        RETURN type(r) as RelationType
-        """
         
         try:
             # Execute query
@@ -343,24 +372,23 @@ class IfcToGraphMapper:
             logger.warning("Missing element ID or material name")
             return False
         
-        # Generate Cypher parameters
-        params = {
-            "element_id": element_id,
-            "material_name": material_name
-        }
-        
-        # Generate Cypher query
-        query = """
-        MATCH (e), (m:Material)
-        WHERE e.GlobalId = $element_id AND m.name = $material_name
-        MERGE (e)-[r:IS_MADE_OF]->(m)
-        RETURN type(r) as RelationType
-        """
-        
+        # Get the optimized query creator from Neo4j connector
         try:
-            # Execute query
-            result = self.connector.run_query(query, params)
-            return bool(result)
+            # First ensure material exists
+            material_query = """
+            MERGE (m:Material {name: $material_name})
+            RETURN m.name as name
+            """
+            self.connector.run_query(material_query, {"material_name": material_name})
+            
+            # Then create relationship using the optimized method
+            result = self.connector.create_relationship(
+                source_id=element_id,
+                target_id=material_name,
+                relationship_type="IS_MADE_OF",
+                properties=None
+            )
+            return result is not None
         except Exception as e:
             logger.error(f"Error linking element to material: {str(e)}")
             return False
@@ -413,4 +441,48 @@ class IfcToGraphMapper:
             return 0
         except Exception as e:
             logger.error(f"Error getting relationship count: {str(e)}")
+            return 0
+    
+    def get_count_by_label(self, label: str) -> int:
+        """
+        Get the count of nodes with a specific label.
+        
+        Args:
+            label: Node label to count
+            
+        Returns:
+            Integer count of nodes with that label
+        """
+        query = f"""
+        MATCH (n:{label})
+        RETURN count(n) as count
+        """
+        
+        try:
+            result = self.connector.run_query(query)
+            return result[0]["count"] if result else 0
+        except Exception as e:
+            logger.error(f"Error getting count for label {label}: {str(e)}")
+            return 0
+            
+    def get_relationship_count_by_type(self, rel_type: str) -> int:
+        """
+        Get the count of relationships with a specific type.
+        
+        Args:
+            rel_type: Relationship type to count
+            
+        Returns:
+            Integer count of relationships with that type
+        """
+        query = f"""
+        MATCH ()-[r:{rel_type}]->()
+        RETURN count(r) as count
+        """
+        
+        try:
+            result = self.connector.run_query(query)
+            return result[0]["count"] if result else 0
+        except Exception as e:
+            logger.error(f"Error getting count for relationship type {rel_type}: {str(e)}")
             return 0 

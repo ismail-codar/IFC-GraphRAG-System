@@ -25,10 +25,17 @@ def test_connection(uri, auth, database):
         with GraphDatabase.driver(uri, auth=auth) as driver:
             # Test if we can connect and run a simple query
             with driver.session(database=database) as session:
-                result = session.run("RETURN 1 AS test")
+                # Use a simple boolean query to avoid type comparison issues
+                result = session.run("RETURN true AS connected")
                 record = result.single()
-                logger.info(f"Connection successful! Test result: {record['test']}")
-                return True
+                
+                # Log the result for debugging
+                if record and "connected" in record:
+                    logger.info(f"Connection successful! Test result: {record['connected']}")
+                    return True
+                else:
+                    logger.warning("Connection test returned unexpected result")
+                    return False
     except Exception as e:
         logger.error(f"Connection failed: {e}")
         return False

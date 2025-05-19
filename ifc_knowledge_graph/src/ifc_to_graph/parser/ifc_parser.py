@@ -631,4 +631,27 @@ class IfcParser:
         except Exception as e:
             logger.error(f"Error extracting material info for element {element.GlobalId if element else None}: {str(e)}")
         
-        return materials 
+        return materials
+    
+    def get_schema_version(self) -> str:
+        """
+        Get the schema version of the loaded IFC file.
+        
+        Returns:
+            String representing the IFC schema version (e.g., 'IFC2X3', 'IFC4', etc.)
+        """
+        try:
+            # Check if the file is loaded
+            if not self.file:
+                logger.warning("IFC file not loaded when trying to get schema version")
+                return "Unknown"
+            
+            # Get the schema identifier from the file
+            schema_id = self.file.schema
+            
+            # Common schema identifiers: 'IFC2X3', 'IFC4', 'IFC4X1', etc.
+            return schema_id
+        
+        except Exception as e:
+            logger.error(f"Error getting IFC schema version: {str(e)}")
+            return "Unknown" 

@@ -117,6 +117,39 @@ def parse_args() -> argparse.Namespace:
         help="Number of parallel workers (default: CPU count)"
     )
     
+    # Domain enrichment options
+    parser.add_argument(
+        "--disable-enrichment", "-de",
+        action="store_true",
+        help="Disable domain-specific enrichment"
+    )
+    
+    # Add specific enrichment flags
+    domain_group = parser.add_argument_group('Domain Enrichment Options')
+    domain_group.add_argument(
+        "--building-systems",
+        action="store_true",
+        help="Enable building system classification"
+    )
+    
+    domain_group.add_argument(
+        "--performance-properties",
+        action="store_true",
+        help="Enable performance property extraction"
+    )
+    
+    domain_group.add_argument(
+        "--semantic-tagging",
+        action="store_true",
+        help="Enable semantic tagging"
+    )
+    
+    domain_group.add_argument(
+        "--material-properties",
+        action="store_true",
+        help="Enable detailed material property extraction"
+    )
+    
     return parser.parse_args()
 
 
@@ -142,6 +175,33 @@ def main() -> None:
     else:
         monitoring_dir = None
     
+    # Determine domain enrichment settings
+    enable_domain_enrichment = not args.disable_enrichment
+    
+    if enable_domain_enrichment:
+        logger.info("Domain enrichment is enabled")
+    else:
+        logger.info("Domain enrichment is disabled")
+        
+    # Check for specific enrichment flags
+    specific_enrichment = any([
+        args.building_systems,
+        args.performance_properties,
+        args.semantic_tagging,
+        args.material_properties
+    ])
+    
+    if specific_enrichment:
+        # If any specific flags are set, log which ones
+        if args.building_systems:
+            logger.info("- Building system classification enabled")
+        if args.performance_properties:
+            logger.info("- Performance property extraction enabled")
+        if args.semantic_tagging:
+            logger.info("- Semantic tagging enabled")
+        if args.material_properties:
+            logger.info("- Material property extraction enabled")
+    
     # Process the IFC file
     try:
         logger.info(f"Starting conversion of {args.ifc_file} to Neo4j")
@@ -157,7 +217,8 @@ def main() -> None:
             enable_monitoring=args.monitor,
             monitoring_output_dir=monitoring_dir,
             parallel_processing=args.parallel,
-            max_workers=args.workers
+            max_workers=args.workers,
+            enable_domain_enrichment=enable_domain_enrichment
         )
         
         # Process the file
@@ -187,6 +248,10 @@ def main() -> None:
         logger.info(f"- Created {stats['relationship_count']} relationships")
         logger.info(f"- Created {stats['property_set_count']} property sets")
         logger.info(f"- Created {stats['material_count']} materials")
+        
+        # Print domain enrichment stats if enabled
+        if enable_domain_enrichment and 'domain_enrichment_count' in stats:
+            logger.info(f"- Applied domain enrichment to {stats['domain_enrichment_count']} elements")
         
         # Print processing mode info
         if args.parallel:
