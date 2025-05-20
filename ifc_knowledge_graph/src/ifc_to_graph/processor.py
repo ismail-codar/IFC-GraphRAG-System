@@ -15,6 +15,8 @@ from .parser import IfcParser
 from .database import Neo4jConnector, SchemaManager, IfcToGraphMapper
 from .database.performance_monitor import timing_decorator
 from .utils.parallel_processor import ParallelProcessor, TaskBatch, parallel_batch_process
+from .topology.topologic_analyzer import TopologicAnalyzer
+from .database.topologic_to_graph_mapper import TopologicToGraphMapper
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -35,7 +37,9 @@ class IfcProcessor:
         enable_monitoring: bool = False,
         monitoring_output_dir: Optional[str] = None,
         parallel_processing: bool = False,
-        max_workers: Optional[int] = None
+        max_workers: Optional[int] = None,
+        enable_domain_enrichment: bool = True,
+        enable_topological_analysis: bool = False
     ):
         """
         Initialize the processor with file and database connection details.
@@ -50,12 +54,16 @@ class IfcProcessor:
             monitoring_output_dir: Directory to save performance reports
             parallel_processing: Whether to enable parallel processing
             max_workers: Maximum number of parallel workers (default: number of CPUs)
+            enable_domain_enrichment: Whether to enable domain-specific enrichment
+            enable_topological_analysis: Whether to enable topological analysis
         """
         self.ifc_file_path = ifc_file_path
         self.enable_monitoring = enable_monitoring
         self.monitoring_output_dir = monitoring_output_dir
         self.parallel_processing = parallel_processing
         self.max_workers = max_workers
+        self.enable_domain_enrichment = enable_domain_enrichment
+        self.enable_topological_analysis = enable_topological_analysis
         
         # Create monitoring directory if it doesn't exist
         if enable_monitoring and monitoring_output_dir:
@@ -81,12 +89,19 @@ class IfcProcessor:
         # Initialize mapper
         self.mapper = IfcToGraphMapper(self.db_connector)
         
+        # Initialize topological analyzer and mapper if enabled
+        if self.enable_topological_analysis:
+            logger.info("Initializing topological analyzer")
+            self.topologic_analyzer = TopologicAnalyzer(self.parser)
+            self.topologic_mapper = TopologicToGraphMapper(self.db_connector)
+        
         # Statistics
         self.stats = {
             "element_count": 0,
             "relationship_count": 0,
             "property_set_count": 0,
             "material_count": 0,
+            "topological_relationship_count": 0,
             "processing_time": 0,
             "start_time": time.time(),
             "end_time": 0,
@@ -161,6 +176,10 @@ class IfcProcessor:
         # Process relationships
         self._process_relationships(batch_size)
         
+        # Process topological relationships if enabled
+        if self.enable_topological_analysis:
+            self._process_topological_relationships()
+        
         # Track memory at end
         if self.enable_monitoring:
             self.db_connector.performance_monitor.measure_memory("process_end", {
@@ -182,6 +201,10 @@ class IfcProcessor:
         logger.info(f"Created {self.stats['relationship_count']} relationships")
         logger.info(f"Created {self.stats['property_set_count']} property sets")
         logger.info(f"Created {self.stats['material_count']} materials")
+        
+        # Log topological statistics if enabled
+        if self.enable_topological_analysis:
+            logger.info(f"Created {self.stats['topological_relationship_count']} topological relationships")
         
         # Get graph statistics
         node_count = self.mapper.get_node_count()
@@ -584,6 +607,46 @@ class IfcProcessor:
             
             # Sum up created relationships
             self.stats["relationship_count"] += sum(all_created_counts)
+    
+    @timing_decorator
+    def _process_topological_relationships(self) -> None:
+        """
+        Process topological relationships using the TopologicAnalyzer.
+        This extracts implicit spatial relationships from the IFC model geometry.
+        """
+        if not self.enable_topological_analysis:
+            logger.warning("Topological analysis is disabled. Skipping topological relationship processing.")
+            return
+            
+        logger.info("Processing topological relationships")
+        
+        try:
+            # Analyze building topology to get all relationship types
+            logger.info("Analyzing building topology")
+            topology_results = self.topologic_analyzer.analyze_building_topology()
+            
+            # Clear existing topological relationships to avoid duplicates
+            logger.info("Clearing existing topological relationships")
+            self.topologic_mapper.clear_topological_relationships()
+            
+            # Import the relationships into Neo4j
+            logger.info("Importing topological relationships into Neo4j")
+            import_stats = self.topologic_mapper.import_all_topological_relationships(topology_results)
+            
+            # Update statistics
+            total_topological_rels = sum(import_stats.values())
+            self.stats["topological_relationship_count"] = total_topological_rels
+            
+            # Log detailed statistics
+            logger.info(f"Created {total_topological_rels} topological relationships:")
+            for rel_type, count in import_stats.items():
+                logger.info(f"  - {rel_type}: {count}")
+                
+        except Exception as e:
+            logger.error(f"Error processing topological relationships: {str(e)}")
+            logger.error("Continuing with standard processing")
+            
+        logger.info("Topological relationship processing complete")
     
     def _save_performance_report(self) -> None:
         """

@@ -1,85 +1,126 @@
 # Project File Structure
 
-## Project Structure Update (May 2025)
+## Project Structure Update (May 2023)
 
 **Current Status:**
 - The pipeline for converting IFC to Neo4j is complete and functional, with proven integration test results.
 - Recent integration tests successfully created a knowledge graph with 306 nodes and 2328 relationships.
 - The BIMConverse natural language querying system has been implemented and enables users to query the IFC knowledge graphs using conversational language.
-- The codebase is now ready for advanced querying, API development, and comprehensive documentation.
-- New optimization tools have been added to reduce IFC file sizes and improve processing speed.
-- There is a non-critical issue with material node creation that affects material associations but doesn't prevent the core graph from being created.
+- Phase 1 of codebase refactoring has been completed, focusing on reorganizing the test structure and removing redundant files.
+- There is a known issue with material node creation that affects material associations but doesn't prevent the core graph from being created.
+- Phase 2 of refactoring is in progress, focusing on fixing bugs and standardizing code patterns.
 
 ---
 
 # IFC to Neo4j Knowledge Graph Project Structure
 
-## Root Directory
+## Actual Directory Structure
 
 ```
 /ifc_knowledge_graph/
-├── docs/                       # Documentation files
-├── tools/                      # Utility scripts
-├── tests/                      # Test cases and fixtures
-├── examples/                   # Example scripts and configs
-├── ifc_parser/                 # IFC file parsing module
-├── topology/                   # Topological analysis module
-├── neo4j_connector/            # Neo4j database interaction module
-├── bimconverse/                # BIMConverse natural language querying system
-├── data/                       # Sample data and resources
-├── config/                     # Configuration files
-└── notebooks/                  # Jupyter notebooks for demonstrations
+├── src/                       # Core source code
+│   └── ifc_to_graph/          # IFC to graph pipeline
+│       ├── __init__.py
+│       ├── processor.py       # Main orchestrator
+│       ├── parser/            # IFC parsing
+│       ├── topology/          # Topological analysis
+│       ├── database/          # Neo4j interaction
+│       ├── utils/             # Utilities
+│       └── cli/               # Command line interfaces
+├── bimconverse/               # BIMConverse RAG system
+│   ├── __init__.py
+│   ├── core.py                # Core RAG functionality
+│   ├── cli.py                 # Command-line interface
+│   ├── prompts.py             # Prompt templates
+│   └── retrievers.py          # Retrieval strategies
+├── tests/                     # Consolidated tests
+│   ├── __init__.py
+│   ├── unit/                  # Unit tests
+│   │   ├── __init__.py
+│   │   ├── test_ifc_parser.py
+│   │   └── test_neo4j_connector.py
+│   └── integration/           # Integration tests
+│       ├── __init__.py
+│       ├── test_integration.py
+│       ├── test_core.py
+│       ├── test_multihop.py
+│       ├── test_graph_quality.py
+│       └── test_topological_features.py
+├── tools/                     # Utility scripts
+├── examples/                  # Example scripts
+├── data/                      # Sample data
+├── docs/                      # Documentation
+├── visualizations/            # Visualization outputs
+├── performance_reports/       # Performance data
+├── output/                    # Output files
+├── main.py                    # Main entry point
+├── requirements.txt           # Dependencies
+├── config.json                # Configuration
+└── README.md                  # Project overview
 ```
 
 ## Documentation (`/docs/`)
 
 ```
 /docs/
-├── concept.md                  # High-level project concept
-├── currentappstatus.md         # Current implementation status
-├── implementationplan.md       # Phase-based implementation plan
-├── file_structure.md           # This file - project structure
-├── database_schema.md          # Neo4j database schema documentation
-├── api_reference.md            # API reference documentation
-├── usage_examples.md           # Usage examples and tutorials
-└── troubleshooting.md          # Common issues and solutions
+├── concept.md                 # High-level project concept
+├── currentappstatus.md        # Current implementation status
+├── implementationplan.md      # Phase-based implementation plan
+├── file_structure.md          # This file - project structure
+├── database_schema.md         # Neo4j database schema documentation
+├── graphrag.md                # GraphRAG implementation details
+└── other documentation files
 ```
 
-## IFC Parser Module (`/ifc_parser/`)
+## IFC to Graph Module (`/src/ifc_to_graph/`)
+
+### Parser (`/src/ifc_to_graph/parser/`)
 
 ```
-/ifc_parser/
+/parser/
 ├── __init__.py
-├── parser.py                   # Main IFC parsing functionality
-├── schema.py                   # IFC schema definitions
-├── processor.py                # IFC data processing functions
-├── optimizer.py                # Memory and performance optimizations
-├── utils.py                    # Utility functions
-└── exceptions.py               # Custom exception classes
+├── ifc_parser.py              # Main IFC parsing functionality
+└── domain_enrichment.py       # Domain-specific enrichment
 ```
 
-## Topology Module (`/topology/`)
+### Topology (`/src/ifc_to_graph/topology/`)
 
 ```
 /topology/
 ├── __init__.py
-├── analyzer.py                 # Core topology analysis functionality
-├── cell_complex.py             # Cell complex representation
-├── spatial_relationships.py    # Spatial relationship extraction
-├── geometry.py                 # Geometry processing functions
-└── utils.py                    # Utility functions
+├── topologic_analyzer.py      # Core topology analysis
+└── README.md                  # Topology documentation
 ```
 
-## Neo4j Connector Module (`/neo4j_connector/`)
+### Database (`/src/ifc_to_graph/database/`)
 
 ```
-/neo4j_connector/
+/database/
 ├── __init__.py
-├── connector.py                # Database connection management
-├── cypher_builder.py           # Cypher query construction
-├── batch_importer.py           # Batch import functionality
-├── schema_manager.py           # Database schema management
-└── utils.py                    # Utility functions
+├── neo4j_connector.py         # Database connection management
+├── schema.py                  # Schema definitions
+├── ifc_to_graph_mapper.py     # Maps IFC data to graph
+├── topologic_to_graph_mapper.py # Maps topology to graph
+├── performance_monitor.py     # Tracks database operations
+└── query_optimizer.py         # Query optimization
+```
+
+### Utils (`/src/ifc_to_graph/utils/`)
+
+```
+/utils/
+├── __init__.py
+├── parallel_processor.py      # Parallel processing utilities
+└── graph_quality_analyzer.py  # Graph quality analysis
+```
+
+### CLI (`/src/ifc_to_graph/cli/`)
+
+```
+/cli/
+├── __init__.py
+├── ifc_parser_cli.py          # IFC parsing CLI
+└── ifc_to_neo4j_cli.py        # Neo4j conversion CLI
 ```
 
 ## BIMConverse Module (`/bimconverse/`)
@@ -87,13 +128,10 @@
 ```
 /bimconverse/
 ├── __init__.py
-├── core.py                     # Core GraphRAG implementation
-├── cli.py                      # Command-line interface
-├── schema.py                   # Building schema definitions
-├── config.py                   # Configuration utilities
-├── prompts.py                  # Prompt templates for LLMs
-├── retrievers.py               # Custom retrieval strategies
-└── formatters.py               # Response formatting utilities
+├── core.py                    # Core GraphRAG implementation
+├── cli.py                     # Command-line interface
+├── prompts.py                 # Prompt templates for LLMs
+└── retrievers.py              # Custom retrieval strategies
 ```
 
 ## Tests (`/tests/`)
@@ -101,57 +139,63 @@
 ```
 /tests/
 ├── __init__.py
-├── unit/                       # Unit tests for all modules
-├── integration/                # Integration tests
-├── fixtures/                   # Test fixtures and sample data
-└── conftest.py                 # PyTest configuration
+├── unit/                      # Unit tests
+│   ├── __init__.py
+│   ├── test_ifc_parser.py     # Tests for IFC parser
+│   └── test_neo4j_connector.py # Tests for Neo4j connector
+└── integration/               # Integration tests
+    ├── __init__.py
+    ├── test_integration.py    # End-to-end tests
+    ├── test_core.py           # BIMConverse core tests
+    ├── test_multihop.py       # Multi-hop reasoning tests
+    ├── test_graph_quality.py  # Graph quality tests
+    └── test_topological_features.py # Topology tests
 ```
 
 ## Tools (`/tools/`)
 
 ```
 /tools/
-├── ifc_optimizer.py            # IFC file size reduction tool
-├── batch_processor.py          # Batch processing script
-├── graph_statistics.py         # Graph database statistics tool
-├── validator.py                # Data validation tool
-└── visualization.py            # Visualization utilities
+├── ifc_optimize.py            # IFC file size reduction
+└── optimize_all_ifcs.py       # Batch processing
 ```
 
 ## Examples (`/examples/`)
 
 ```
 /examples/
-├── simple_parser.py            # Basic IFC parsing example
-├── topology_analysis.py        # Topological analysis example
-├── graph_import.py             # Neo4j import example
-├── basic_query.py              # Basic querying example
-├── bimconverse_example.py      # BIMConverse usage example
-└── config_samples/             # Example configuration files
+├── domain_enrichment_example.py # Domain enrichment example
+└── other example files
 ```
 
 ## Future Development Plans
 
-1. **Advanced GraphRAG Capabilities:**
+1. **Complete Phase 2 of Refactoring:**
+   - Fix material node creation bug
+   - Consolidate duplicate functionality
+   - Standardize imports throughout the codebase
+   - Improve code quality and maintainability
+   
+2. **Advanced GraphRAG Capabilities:**
    - Implement multi-hop reasoning for complex building queries
    - Create parent-child document retrieval for IFC hierarchies
    - Develop hypothetical question generation for common building queries
    - Add specialized spatial relationship traversal patterns
    - Implement building domain-specific prompt templates
 
-2. **Web Interface and API:**
+3. **Web Interface and API:**
    - Develop a web-based user interface
    - Create a RESTful API for third-party integration
    - Implement real-time visualization of query results
    - Add user authentication and permission management
 
-3. **Advanced Analytics:**
+4. **Advanced Analytics:**
    - Implement graph algorithms for building analysis
    - Add machine learning for pattern recognition
    - Create reporting and dashboard functionality
    - Develop comparative analysis between building models
 
-4. **Integrations:**
+5. **Integrations:**
    - Create plugins for BIM software like Revit, ArchiCAD
    - Implement connectors for common data formats
    - Add support for IFC export from the knowledge graph

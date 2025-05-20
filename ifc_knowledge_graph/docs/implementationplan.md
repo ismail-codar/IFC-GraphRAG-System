@@ -155,7 +155,65 @@ This phase focuses on creating a GraphRAG (Retrieval Augmented Generation) syste
   - [x] Add database statistics command
   - [x] Provide helpful error messages
 
-## Phase 5: Advanced GraphRAG Capabilities
+## Phase 5: Refactoring and Codebase Improvements
+
+This phase focuses on improving the overall codebase structure, removing redundancy, fixing bugs, and enhancing maintainability, all while preserving the existing functionality.
+
+### Part 1: Code Cleanup and Reorganization
+
+- [x] **Test Structure Improvement**
+  - [x] Create dedicated unit/ and integration/ test directories
+  - [x] Move relevant test files to appropriate directories
+  - [x] Create __init__.py files for proper package structure
+  - [x] Remove redundant test files
+
+- [x] **File Cleanup**
+  - [x] Remove all .bak files from the codebase
+  - [x] Delete oversized log files
+  - [x] Remove debugging files that are no longer needed
+  - [x] Consolidate duplicate example files
+
+- [ ] **Directory Structure Alignment**
+  - [ ] Ensure all modules follow consistent structure
+  - [ ] Align actual structure with documentation
+  - [ ] Create missing __init__.py files where needed
+  - [ ] Standardize naming conventions
+
+### Part 2: Code Quality and Bug Fixes
+
+- [ ] **Bug Fixes**
+  - [ ] Fix material node creation type mismatch in `ifc_to_graph_mapper.py`
+  - [ ] Address any import issues from inconsistent module structure
+  - [ ] Fix any test failures discovered after reorganization
+  - [ ] Fix edge cases in topological analysis
+
+- [ ] **Code Standardization**
+  - [ ] Consolidate duplicate functionality
+  - [ ] Standardize import patterns across the codebase
+  - [ ] Apply consistent formatting and docstrings
+  - [ ] Implement proper error handling patterns
+
+- [ ] **Performance Improvements**
+  - [ ] Optimize critical path algorithms in topology analysis
+  - [ ] Improve memory usage for large IFC files
+  - [ ] Enhance Neo4j query performance
+  - [ ] Optimize parallel processing mechanisms
+
+### Part 3: Documentation Updates
+
+- [ ] **Update Documentation Files**
+  - [ ] Align documentation with actual implementation
+  - [ ] Update schema documentation
+  - [ ] Create comprehensive API documentation
+  - [ ] Update user guides and examples
+
+- [ ] **Code Documentation**
+  - [ ] Add missing docstrings to functions and classes
+  - [ ] Create inline comments for complex algorithms
+  - [ ] Document key design decisions
+  - [ ] Add type hints to improve code readability
+
+## Phase 6: Advanced GraphRAG Capabilities
 
 This phase focuses on enhancing the BIMConverse system with advanced GraphRAG techniques to enable more sophisticated reasoning about building models, particularly for multi-hop queries that require traversing multiple relationships.
 

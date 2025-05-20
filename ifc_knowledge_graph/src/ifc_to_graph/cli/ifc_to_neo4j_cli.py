@@ -124,6 +124,13 @@ def parse_args() -> argparse.Namespace:
         help="Disable domain-specific enrichment"
     )
     
+    # Add topological analysis option
+    parser.add_argument(
+        "--topology", "-t",
+        action="store_true",
+        help="Enable topological analysis to extract additional spatial relationships"
+    )
+    
     # Add specific enrichment flags
     domain_group = parser.add_argument_group('Domain Enrichment Options')
     domain_group.add_argument(
@@ -202,6 +209,10 @@ def main() -> None:
         if args.material_properties:
             logger.info("- Material property extraction enabled")
     
+    # Handle topological analysis flag
+    if args.topology:
+        logger.info("Topological analysis is enabled - will extract additional spatial relationships")
+    
     # Process the IFC file
     try:
         logger.info(f"Starting conversion of {args.ifc_file} to Neo4j")
@@ -218,7 +229,8 @@ def main() -> None:
             monitoring_output_dir=monitoring_dir,
             parallel_processing=args.parallel,
             max_workers=args.workers,
-            enable_domain_enrichment=enable_domain_enrichment
+            enable_domain_enrichment=enable_domain_enrichment,
+            enable_topological_analysis=args.topology
         )
         
         # Process the file
@@ -249,6 +261,10 @@ def main() -> None:
         logger.info(f"- Created {stats['property_set_count']} property sets")
         logger.info(f"- Created {stats['material_count']} materials")
         
+        # Print topological statistics if enabled
+        if args.topology:
+            logger.info(f"- Created {stats.get('topological_relationship_count', 0)} topological relationships")
+        
         # Print domain enrichment stats if enabled
         if enable_domain_enrichment and 'domain_enrichment_count' in stats:
             logger.info(f"- Applied domain enrichment to {stats['domain_enrichment_count']} elements")
@@ -270,6 +286,8 @@ def main() -> None:
     except Exception as e:
         logger.error(f"Error processing IFC file: {str(e)}", exc_info=True)
         sys.exit(1)
+
+    logger.info("IFC to Neo4j conversion completed successfully")
 
 
 if __name__ == "__main__":

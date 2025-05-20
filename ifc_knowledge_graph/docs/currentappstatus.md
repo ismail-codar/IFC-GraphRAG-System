@@ -37,6 +37,12 @@ The project is primarily Python-based, utilizing `IfcOpenShell` for parsing IFC 
    - Supports conversation context for follow-up questions
    - Features a comprehensive CLI interface with interactive mode
 
+5. **Codebase Refactoring (Phase 1)**:
+   - Reorganized test structure into unit and integration test directories
+   - Removed redundant files and backups (.bak files)
+   - Improved project structure for better maintainability
+   - Ensured consistent directory structure
+
 ### In Progress/Planned Components
 
 1. **Advanced GraphRAG Capabilities**:
@@ -76,25 +82,39 @@ The project is primarily Python-based, utilizing `IfcOpenShell` for parsing IFC 
 
 ## Recent Changes
 
-1. Completed the BIMConverse GraphRAG implementation for natural language querying
-2. Added conversation context support in the command-line interface
-3. Implemented Text2Cypher generation for building-specific queries
-4. Created a comprehensive CLI with rich text output and special commands
+1. Completed Phase 1 of codebase refactoring:
+   - Restructured the tests directory with dedicated unit/ and integration/ subdirectories
+   - Removed redundant test files and consolidated test functionality
+   - Eliminated all backup (.bak) files and oversized logs
+   - Improved overall project organization
+
+2. Previous accomplishments:
+   - Completed the BIMConverse GraphRAG implementation for natural language querying
+   - Added conversation context support in the command-line interface
+   - Implemented Text2Cypher generation for building-specific queries
+   - Created a comprehensive CLI with rich text output and special commands
 
 ## Known Issues and Limitations
 
-1. Material associations may not be fully captured in some complex IFC models
+1. Material node creation issue in `ifc_to_graph_mapper.py` (type mismatch)
 2. Very large IFC files (>200MB) may require additional optimization
 3. Graph embeddings could be improved with more building-specific training
 4. GraphRAG needs enhancement for complex multi-hop reasoning questions
 
 ## Next Steps
 
-1. Implement advanced GraphRAG capabilities for improved multi-hop reasoning
-2. Develop specialized building domain prompt templates and examples
-3. Create spatial relationship traversal patterns for complex spatial queries
-4. Add query optimization and caching for common building-related questions
-5. Develop a web-based UI with visualization capabilities
+1. Implement Phase 2 of refactoring:
+   - Fix material node creation bug
+   - Consolidate duplicate functionality
+   - Standardize imports throughout the codebase
+   - Further improve code quality
+
+2. Continue with other planned enhancements:
+   - Implement advanced GraphRAG capabilities for improved multi-hop reasoning
+   - Develop specialized building domain prompt templates and examples
+   - Create spatial relationship traversal patterns for complex spatial queries
+   - Add query optimization and caching for common building-related questions
+   - Develop a web-based UI with visualization capabilities
 
 ## File Structure and Key Components
 
@@ -103,18 +123,22 @@ The project is organized into several key directories:
 *   **`ifc_knowledge_graph/data/`**: Stores IFC model files.
 *   **`ifc_knowledge_graph/docs/`**: Contains all project documentation, including conceptual overviews, schema definitions, implementation plans, and this status report.
 *   **`ifc_knowledge_graph/src/`**: Houses the core source code, structured into sub-modules:
-    *   **`cli/`**: Command-line interface tools for parsing IFC files (`ifc_parser_cli.py`) and converting them to Neo4j (`ifc_to_neo4j_cli.py`).
-    *   **`database/`**: Modules for Neo4j interaction, including connection management (`neo4j_connector.py`), schema definitions (`schema.py`), mapping IFC data to graph structures (`ifc_to_graph_mapper.py`, `topologic_to_graph_mapper.py`), and performance monitoring (`performance_monitor.py`).
-    *   **`parser/`**: Core IFC parsing logic (`ifc_parser.py`) and domain-specific data enrichment (`domain_enrichment.py`).
-    *   **`topology/`**: Topological analysis using `TopologicPy` (`topologic_analyzer.py`).
-    *   **`utils/`**: Utility modules for tasks like parallel processing (`parallel_processor.py`) and graph quality analysis (`graph_quality_analyzer.py`).
-    *   **`processor.py`**: The main orchestrator for the IFC to Neo4j conversion process.
-*   **`ifc_knowledge_graph/tests/`**: Contains a suite of tests for various components, including IFC parsing, Neo4j connection, graph quality, and topological analysis.
+    *   **`ifc_to_graph/`**: The main module for IFC to graph conversion containing:
+        *   **`cli/`**: Command-line interface tools for parsing IFC files (`ifc_parser_cli.py`) and converting them to Neo4j (`ifc_to_neo4j_cli.py`).
+        *   **`database/`**: Modules for Neo4j interaction, including connection management (`neo4j_connector.py`), schema definitions (`schema.py`), mapping IFC data to graph structures (`ifc_to_graph_mapper.py`, `topologic_to_graph_mapper.py`), and performance monitoring (`performance_monitor.py`).
+        *   **`parser/`**: Core IFC parsing logic (`ifc_parser.py`) and domain-specific data enrichment (`domain_enrichment.py`).
+        *   **`topology/`**: Topological analysis using `TopologicPy` (`topologic_analyzer.py`).
+        *   **`utils/`**: Utility modules for tasks like parallel processing (`parallel_processor.py`) and graph quality analysis (`graph_quality_analyzer.py`).
+        *   **`processor.py`**: The main orchestrator for the IFC to Neo4j conversion process.
+*   **`ifc_knowledge_graph/tests/`**: Contains a suite of tests organized into:
+    *   **`unit/`**: Unit tests for individual components (e.g., `test_ifc_parser.py`, `test_neo4j_connector.py`)
+    *   **`integration/`**: Integration tests for end-to-end functionality (e.g., `test_integration.py`, `test_topological_features.py`, `test_multihop.py`, `test_core.py`, `test_graph_quality.py`)
 *   **`ifc_knowledge_graph/main.py`**: The main entry point for the application, routing commands to the appropriate CLI modules.
-*   **`ifc_knowledge_graph/bimconverse/`**: New directory containing the BIMConverse natural language querying system:
+*   **`ifc_knowledge_graph/bimconverse/`**: Directory containing the BIMConverse natural language querying system:
     *   **`core.py`**: Core BIMConverseRAG class with Neo4j GraphRAG integration.
     *   **`cli.py`**: Command-line interface for the BIMConverse system.
-    *   **`test_core.py`**: Test script for the BIMConverse core functionality.
+    *   **`retrievers.py`**: Retrieval strategies for the GraphRAG system.
+    *   **`prompts.py`**: Prompt templates for the GraphRAG system.
 *   **`tools/`**: Contains optimization tools including `ifc_optimize.py` for reducing IFC file sizes and `optimize_all_ifcs.py` for batch processing.
 
 Other notable files include:
@@ -191,6 +215,14 @@ Other notable files include:
     *   Support for rich text formatting and multiple output formats is available.
     *   Database statistics display is implemented.
     *   Web Interface and Multi-Model Support (Parts 2-3) are planned for future development.
+*   **Refactoring Phase 1**: ✅ Completed.
+    *   Reorganized tests directory into unit and integration tests.
+    *   Removed redundant files and backups.
+    *   Improved project structure for better maintainability.
+*   **Refactoring Phase 2**: ⏳ In Progress.
+    *   Fix material node creation bug
+    *   Consolidate duplicate functionality
+    *   Standardize imports throughout the codebase
 *   **Phase 5: Extensions and Future Work**: ❌ Not Started.
 
 ## Known Issues
@@ -209,7 +241,7 @@ Other notable files include:
 *   **Conversation Context**: Supports multi-turn conversations with context retention.
 *   **Command-Line Tools**: Provides accessible interfaces for core functionalities with configuration options for enrichment features.
 *   **Modularity**: Code is organized into distinct modules for parsing, topology, database interaction, and processing.
-*   **Testing**: A `tests/` directory exists with numerous test files, including robust integration and end-to-end tests.
+*   **Testing**: A `tests/` directory with organized unit and integration tests that verify all core functionality.
 *   **Documentation**: Significant documentation is available in the `docs/` folder, covering concepts, file structure, schema, implementation plan, and specific features like parallel processing and graph quality analysis.
 *   **Example Scripts**: The `examples/` directory includes demonstration scripts like `domain_enrichment_example.py` to showcase key features.
 *   **IFC Optimization**: Tools for reducing IFC file sizes and optimizing performance.
@@ -229,4 +261,4 @@ The "IFC to Neo4j Knowledge Graph" project has successfully implemented its core
 
 The BIMConverse natural language querying system has been successfully implemented, allowing users to query the IFC knowledge graph using natural language with support for conversation context and rich formatting of responses.
 
-The current focus should be on fixing the material node creation issue, implementing the planned web interface, and extending BIMConverse with multi-model support and advanced analysis capabilities. 
+A significant refactoring (Phase 1) has been completed to improve code organization and maintainability, particularly in the test structure. Phase 2 of refactoring is now in progress, focusing on fixing the material node creation issue, consolidating duplicate functionality, and standardizing imports throughout the codebase. 
