@@ -6,6 +6,7 @@ addressing performance issues and avoiding anti-patterns.
 """
 
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ def optimize_node_connection_query(source_id, target_id, relationship_type, prop
 
 def optimize_batch_merge_query(relationship_batch):
     """
-    Create an optimized query to merge multiple relationships in a single batch operation.
+    Create an optimized query to merge multiple relationships in a single batch operation using APOC.
     
     Args:
         relationship_batch: List of dictionaries, each containing:
@@ -67,71 +68,49 @@ def optimize_batch_merge_query(relationship_batch):
     if not relationship_batch:
         return "", {}
     
-    # Build CALL apoc.periodic.iterate if apoc is available, otherwise build a regular UNWIND query
-    # We'll use the simpler UNWIND approach for better compatibility
+    # Prepare parameters for unified batch processing with UNWIND
+    batch_data = []
     
-    # Build parameter list
-    batch_params = []
-    params = {}
-    
-    for i, rel in enumerate(relationship_batch):
-        # Validate required fields
-        if not rel.get('source_id') or not rel.get('target_id') or not rel.get('type'):
-            continue
-            
-        # Create parameter names
-        source_param = f"source_{i}"
-        target_param = f"target_{i}"
-        type_param = f"type_{i}"
+    for rel in relationship_batch:
+        # Clean up properties - ensure serializable
+        clean_props = {}
+        if rel.get("properties"):
+            for key, value in rel["properties"].items():
+                # Convert any complex objects to strings to avoid type mismatch errors
+                if isinstance(value, (dict, list)):
+                    clean_props[key] = json.dumps(value)
+                elif value is None:
+                    # Skip None values or replace with empty string based on preference
+                    continue
+                else:
+                    clean_props[key] = value
         
-        # Add parameters
-        params[source_param] = rel['source_id']
-        params[target_param] = rel['target_id']
-        params[type_param] = rel['type']
-        
-        # Handle properties if provided
-        props_string = ""
-        if rel.get('properties'):
-            prop_items = []
-            for key, value in rel['properties'].items():
-                if value is not None:
-                    prop_param = f"prop_{i}_{key}"
-                    prop_items.append(f"{key}: ${prop_param}")
-                    params[prop_param] = value
-            
-            if prop_items:
-                props_string = " {" + ", ".join(prop_items) + "}"
-        
-        # Add to batch
-        batch_params.append({
-            "source_param": source_param,
-            "target_param": target_param,
-            "type_param": type_param,
-            "props_string": props_string
+        batch_data.append({
+            "source_id": rel["source_id"],
+            "target_id": rel["target_id"],
+            "type": rel["type"],
+            "properties": clean_props
         })
     
-    # If we have no valid relationships, return empty query
-    if not batch_params:
-        return "", {}
+    # Create query using UNWIND and apoc.merge.relationship
+    query = """
+    UNWIND $batch AS rel
+    MATCH 
+        (source {GlobalId: rel.source_id}),
+        (target {GlobalId: rel.target_id})
+    CALL apoc.merge.relationship(
+        source,
+        rel.type,
+        {},
+        rel.properties,
+        target,
+        {}
+    )
+    YIELD rel as created
+    RETURN count(created)
+    """
     
-    # Build optimized query with multiple small sub-queries to avoid Cartesian products
-    query_parts = []
-    for i, bp in enumerate(batch_params):
-        # Each relationship gets its own sub-query to avoid Cartesian product
-        sub_query = f"""
-        // Relationship {i+1}
-        MATCH (a{i})
-        WHERE a{i}.GlobalId = ${bp['source_param']}
-        WITH a{i}
-        MATCH (b{i})
-        WHERE b{i}.GlobalId = ${bp['target_param']}
-        MERGE (a{i})-[r{i}:${bp['type_param']}{bp['props_string']}]->(b{i})
-        """
-        query_parts.append(sub_query)
-    
-    # Combine all sub-queries and return results
-    query = "\n".join(query_parts) + "\nRETURN 'Done' as result"
-    
+    params = {"batch": batch_data}
     return query, params
 
 def optimize_entity_lookup_query(global_id):
@@ -152,7 +131,7 @@ def optimize_entity_lookup_query(global_id):
 
 def optimize_batch_node_creation_query(node_batch):
     """
-    Create an optimized query for batch node creation.
+    Create an optimized query for batch node creation using APOC.
     
     Args:
         node_batch: List of node dictionaries with labels, properties
@@ -168,20 +147,39 @@ def optimize_batch_node_creation_query(node_batch):
         else:
             labels = node["labels"]
             
+        # Ensure all properties are correctly serialized
+        cleaned_props = {}
+        for key, value in node["properties"].items():
+            # Convert any complex objects to strings to avoid type mismatch errors
+            if isinstance(value, (dict, list)):
+                cleaned_props[key] = json.dumps(value)
+            elif value is None:
+                # Skip None values or replace with empty string based on preference
+                # cleaned_props[key] = ""  # Uncomment to replace None with empty string
+                continue
+            else:
+                cleaned_props[key] = value
+            
         processed_batch.append({
             "labels": labels,
-            "properties": node["properties"]
+            "properties": cleaned_props
         })
     
-    # Create query using UNWIND and apoc.create.node
+    # Create query using UNWIND and apoc.merge.node (more stable than complex MERGE statements)
     query = """
-        UNWIND $nodes AS node
-        CALL apoc.create.node(node.labels, node.properties)
-        YIELD node as created
-        RETURN count(created) as count
+    UNWIND $nodes AS node
+    CALL apoc.merge.node(
+        node.labels,
+        node.properties,
+        {},
+        {}
+    )
+    YIELD node as created
+    RETURN count(created)
     """
     
-    return query, {"nodes": processed_batch}
+    params = {"nodes": processed_batch}
+    return query, params
 
 def optimize_property_merge_query(node_id, property_name, property_value):
     """

@@ -15,11 +15,11 @@ logger = logging.getLogger(__name__)
 
 class NodeLabels(Enum):
     """Enum defining the main node labels in the graph schema."""
-    PROJECT = "Project"
-    SITE = "Site"
-    BUILDING = "Building"
-    STOREY = "Storey"
-    SPACE = "Space"
+    PROJECT = "IfcProject"
+    SITE = "IfcSite"
+    BUILDING = "IfcBuilding"
+    STOREY = "IfcBuildingStorey"
+    SPACE = "IfcSpace"
     ELEMENT = "Element"
     WALL = "Wall"
     WINDOW = "Window"
@@ -135,28 +135,28 @@ class SchemaManager:
         
         # Unique GlobalId constraint for Project
         """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (p:Project) 
+        CREATE CONSTRAINT IF NOT EXISTS FOR (p:IfcProject) 
         REQUIRE p.GlobalId IS UNIQUE
         """,
         
         # Additional constraints for other node types
         """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (s:Site) 
+        CREATE CONSTRAINT IF NOT EXISTS FOR (s:IfcSite) 
         REQUIRE s.GlobalId IS UNIQUE
         """,
         
         """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (b:Building) 
+        CREATE CONSTRAINT IF NOT EXISTS FOR (b:IfcBuilding) 
         REQUIRE b.GlobalId IS UNIQUE
         """,
         
         """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (s:Storey) 
+        CREATE CONSTRAINT IF NOT EXISTS FOR (s:IfcBuildingStorey) 
         REQUIRE s.GlobalId IS UNIQUE
         """,
         
         """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (s:Space) 
+        CREATE CONSTRAINT IF NOT EXISTS FOR (s:IfcSpace) 
         REQUIRE s.GlobalId IS UNIQUE
         """,
         
@@ -184,7 +184,7 @@ class SchemaManager:
         
         # Index on Space Name for text search
         """
-        CREATE INDEX IF NOT EXISTS FOR (s:Space) ON (s.Name)
+        CREATE INDEX IF NOT EXISTS FOR (s:IfcSpace) ON (s.Name)
         """,
         
         # Index on PropertySet Name
@@ -323,10 +323,16 @@ def get_node_labels(ifc_type: str) -> List[str]:
     Returns:
         List of Neo4j labels to apply
     """
-    # Get the specific label for this IFC type
+    # Handle the spatial structure elements specifically to ensure they get the right labels
+    if ifc_type in ["IfcProject", "IfcSite", "IfcBuilding", "IfcBuildingStorey", "IfcSpace"]:
+        # For spatial structure elements, use ONLY the specific IFC label
+        specific_label = NodeLabels.from_ifc_type(ifc_type).value
+        return [specific_label]
+    
+    # For regular elements, get the specific label for this IFC type
     specific_label = NodeLabels.from_ifc_type(ifc_type).value
     
-    # Add appropriate parent labels based on hierarchy
+    # For regular elements, add the Element label as a parent class
     labels = [specific_label]
     
     # All physical elements should also have the Element label

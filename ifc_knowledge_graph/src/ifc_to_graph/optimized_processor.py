@@ -240,47 +240,70 @@ class OptimizedProcessor:
             return 0
         
         start_time = time.time()
-        logger.info("Processing topological relationships...")
+        logger.info("Beginning topological analysis...")
         
         try:
-            # Filter elements by type if relevant types specified
-            if self.topology_relevant_types:
-                filtered_elements = {
-                    guid: elem for guid, elem in elements.items()
-                    if elem.type in self.topology_relevant_types
-                }
-                logger.info(f"Filtered {len(filtered_elements)} out of {len(elements)} elements for topology analysis")
+            # Only analyze specific element types that benefit from topology analysis
+            topology_element_types = [
+                "IfcWall", "IfcSlab", "IfcColumn", "IfcBeam", "IfcWindow", "IfcDoor", 
+                "IfcSpace", "IfcBuildingStorey", "IfcBuilding", "IfcSite", "IfcWallStandardCase",
+                "IfcRoof", "IfcStair", "IfcOpeningElement" 
+            ]
+            
+            # Get elements for analysis
+            # Ensure elements_dict contains the necessary IFC elements parsed earlier
+            if not hasattr(self, 'parsed_elements_dict') or not self.parsed_elements_dict:
+                logger.error("Parsed elements dictionary not found or empty. Cannot run topological analysis.")
+                return
+
+            elements_for_analysis = {
+                gid: el_data for gid, el_data in self.parsed_elements_dict.items()
+                if el_data.get('IFCType') in topology_element_types
+            }
+            
+            if not elements_for_analysis:
+                logger.info("No elements relevant for topological analysis found.")
+                return
+
+            if TOPOLOGICPY_AVAILABLE:
+                # Initialize the topologic analyzer
+                logger.info(f"Initializing topologic analyzer with IFC file: {self.ifc_file_path}")
+                try:
+                    # Pass the parsed IFC file instead of just the path
+                    analyzer = TopologicAnalyzer(self.parser.file)
+                    analyzer.set_ifc_parser(self.parser.file)  # Make sure the parser is set
+                    # Store the file path in case it's needed
+                    analyzer.ifc_file_path = self.ifc_file_path
+                    logger.info("TopologicAnalyzer initialized successfully")
+                except Exception as init_error:
+                    logger.error(f"Failed to initialize TopologicAnalyzer: {init_error}", exc_info=True)
+                    return
+
+                # Run analysis - this should return a list of relationship dictionaries
+                # [{'source_id': str, 'target_id': str, 'relationship_type': str, 'properties': {}}]
+                topological_rels_list = analyzer.analyze_elements(elements_for_analysis)
+                logger.info(f"Topological analysis found {len(topological_rels_list)} potential relationships.")
+
+                if topological_rels_list:
+                    # Convert to the format expected by OptimizedMapper
+                    relationships_data_for_mapper = []
+                    for rel in topological_rels_list:
+                        relationships_data_for_mapper.append({
+                            "source_id": rel.get("source_id"),      # Changed from source_global_id
+                            "target_id": rel.get("target_id"),      # Changed from target_global_id
+                            "type": rel.get("relationship_type"), # Changed from relationship_type
+                            "properties": rel.get("properties", {"relationshipSource": "topologicalAnalysis"})
+                        })
+                    
+                    logger.info(f"Processing {len(relationships_data_for_mapper)} topological relationships through mapper.")
+                    # Create relationships using the OptimizedMapper
+                    # This assumes create_relationships_batch can handle these properties
+                    created_count = self.mapper.create_relationships_batch(relationships_data_for_mapper)
+                    self.metrics["relationships_created"] += created_count
+                    logger.info(f"Created {created_count} topological relationships.")
             else:
-                filtered_elements = elements
-                
-            # Skip if no elements to process
-            if not filtered_elements:
-                logger.warning("No elements matched for topology analysis")
-                return 0
-                
-            # Analyze topology
-            analyzer = TopologicAnalyzer(self.ifc_file_path)
-            relationships = analyzer.analyze_elements(filtered_elements)
-            
-            if not relationships:
-                logger.warning("No topological relationships found")
-                return 0
-                
-            # Create relationships in graph
-            logger.info(f"Creating {len(relationships)} topological relationships in Neo4j")
-            mapper = TopologicToGraphMapper(self.neo4j_connector)
-            
-            # Process in batches
-            batch_size = 500  # Larger batch size for relationship operations
-            relationship_count = mapper.create_topologic_relationships(relationships, batch_size)
-            
-            logger.info(f"Created {relationship_count} topological relationships")
-            
-            self.metrics["topology_time"] = time.time() - start_time
-            self.metrics["relationships_created"] = relationship_count
-            
-            return relationship_count
-            
+                logger.warning("TopologicPy is not available. Skipping topological analysis.")
+
         except Exception as e:
             logger.error(f"Error in topology analysis: {str(e)}")
             logger.error(traceback.format_exc())
@@ -336,8 +359,11 @@ class OptimizedProcessor:
         
         # Process topological relationships if enabled
         if self.enable_topological_analysis:
-            elements_dict = {element.guid: element for element in parser.elements}
-            relationships_created = self.process_topology(elements_dict)
+            # Store the elements dictionary as an instance variable for process_topology to use
+            self.parsed_elements_dict = {element.guid: element for element in parser.elements}
+            self.parser = parser  # Also store the parser for TopologicAnalyzer initialization
+            
+            relationships_created = self.process_topology(self.parsed_elements_dict)
             logger.info(f"Created {relationships_created} topological relationships")
         
         self.metrics["end_time"] = time.time()

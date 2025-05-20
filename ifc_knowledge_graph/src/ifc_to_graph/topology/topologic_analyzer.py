@@ -238,180 +238,252 @@ class TopologicAnalyzer:
             
         return None
     
-    def _create_topologic_cell(self, vertices: np.ndarray, faces: List[int], ifc_element: Any) -> Optional[Any]:
+    def _create_topologic_cell(self, vertices: np.ndarray, faces: List[int], ifc_element: Any, max_retries: int = 3) -> Optional[Any]:
         """
-        Create a TopologicPy Cell from IFC geometry data.
+        Create a TopologicPy Cell from IFC geometry data with improved error handling.
         
         Args:
             vertices: Array of vertex coordinates
             faces: List of face indices
             ifc_element: Original IFC element
+            max_retries: Maximum number of retries with increasing tolerance (default: 3)
             
         Returns:
             TopologicPy Cell if successful, None otherwise
         """
         try:
-            # Check if we have enough data to create a Cell
-            if len(vertices) < 4 or len(faces) < 4:  # Minimum for a tetrahedron
-                logger.debug(f"Not enough vertices/faces for Cell: {len(vertices)} vertices, {len(faces)} face indices")
-                return None
-            
-            # Create topologic vertices
-            topologic_vertices = []
-            for vertex in vertices:
-                topologic_vertex = Vertex.ByCoordinates(vertex[0], vertex[1], vertex[2])
-                topologic_vertices.append(topologic_vertex)
-            
-            # Create faces
-            topologic_faces = []
-            i = 0
-            face_count = 0
-            
-            while i < len(faces):
-                try:
-                    # Get number of vertices in this face
-                    num_vertices = faces[i]
-                    i += 1
-                    
-                    # Check if we have enough data remaining
-                    if i + num_vertices > len(faces):
-                        logger.warning(f"Face index out of range: i={i}, num_vertices={num_vertices}, len(faces)={len(faces)}")
-                        break
-                    
-                    # Get the indices for this face
-                    face_indices = faces[i:i+num_vertices]
-                    i += num_vertices
-                    
-                    # Skip faces with too few vertices
-                    if len(face_indices) < 3:
-                        logger.debug("Skipping face with fewer than 3 vertices")
-                        continue
-                    
-                    # Check if indices are in valid range
-                    if max(face_indices) >= len(topologic_vertices) or min(face_indices) < 0:
-                        logger.warning(f"Invalid vertex index in face: {face_indices}")
-                        continue
-                    
-                    # Create wire from vertices
-                    wire_vertices = []
-                    for idx in face_indices:
-                        wire_vertices.append(topologic_vertices[idx])
-                    
-                    # Add closing vertex if not already closed
-                    if face_indices[0] != face_indices[-1]:
-                        wire_vertices.append(topologic_vertices[face_indices[0]])
-                    
-                    # Create wire and face
-                    wire = Wire.ByVertices(wire_vertices)
-                    if wire:
-                        face = Face.ByWire(wire)
-                        if face:
-                            topologic_faces.append(face)
-                            face_count += 1
-                            
-                except Exception as face_error:
-                    logger.warning(f"Error processing face: {str(face_error)}")
-                    # Skip to the next face
-                    i += 1
-            
-            # Create a cell from faces if we have enough
-            if topologic_faces and len(topologic_faces) >= 4:  # Need at least 4 faces for a tetrahedron
-                try:
-                    # Try using a higher tolerance if needed
-                    cell = Cell.ByFaces(topologic_faces, tolerance=0.001)
-                    logger.debug(f"Created Cell with {face_count} faces")
-                    return cell
-                except Exception as cell_error:
-                    logger.warning(f"Failed to create Cell from faces: {str(cell_error)}")
-                    return None
-            else:
-                logger.debug(f"Not enough faces to create Cell: {len(topologic_faces)}")
+            # Using increasing tolerance for multiple attempts
+            for retry in range(max_retries):
+                current_tolerance = 0.001 * (1 + retry)
                 
-        except Exception as e:
-            logger.error(f"Error creating TopologicPy Cell: {str(e)}")
+                try:
+                    # Create faces using the _create_topologic_face method
+                    # This approach treats each face individually for better error handling
+                    all_faces = []
+                    
+                    # Since we're breaking the face indices down differently, we'll process them in batches
+                    # We first collect groups of face indices - this is based on how the IFC geometry is structured
+                    face_groups = []
+                    
+                    # Group the faces, assuming the first number in each group is the face count
+                    i = 0
+                    while i < len(faces):
+                        # Get the number of vertices in this face
+                        try:
+                            num_vertices = faces[i]
+                            i += 1
+                            
+                            # Check if we have enough data left
+                            if i + num_vertices <= len(faces):
+                                face_indices = faces[i:i+num_vertices]
+                                face_groups.append(face_indices)
+                                i += num_vertices
+                            else:
+                                logger.warning(f"Face index out of range: i={i}, num_vertices={num_vertices}, len(faces)={len(faces)}")
+                                break
+                        except IndexError:
+                            logger.warning(f"Index error while grouping faces at index {i}")
+                            break
+                    
+                    # Process each face group to create faces
+                    for face_indices in face_groups:
+                        try:
+                            # Create a wire for this face
+                            wire_vertices = []
+                            
+                            # Check all indices are in range
+                            if max(face_indices) >= len(vertices):
+                                logger.warning(f"Invalid vertex index in face: max index={max(face_indices)}, len(vertices)={len(vertices)}")
+                                continue
+                                
+                            # Get vertices for the face
+                            for idx in face_indices:
+                                wire_vertices.append(vertices[idx])
+                                
+                            # Create a topologic face from these vertices
+                            # Force closing of the wire if needed
+                            if not np.array_equal(wire_vertices[0], wire_vertices[-1]):
+                                wire_vertices.append(wire_vertices[0])
+                                
+                            # Convert to Topologic vertices
+                            topologic_vertices = []
+                            for v in wire_vertices:
+                                vertex = Vertex.ByCoordinates(float(v[0]), float(v[1]), float(v[2]))
+                                topologic_vertices.append(vertex)
+                                
+                            # Create wire with explicit closure
+                            try:
+                                wire = Wire.ByVertices(topologic_vertices, close=True)
+                            except Exception as wire_error:
+                                logger.debug(f"Wire creation failed for face, trying alternative method: {str(wire_error)}")
+                                
+                                # Try alternative method - create edges and then wire
+                                edges = []
+                                for j in range(len(topologic_vertices) - 1):
+                                    edge = Edge.ByStartVertexEndVertex(topologic_vertices[j], topologic_vertices[j+1])
+                                    edges.append(edge)
+                                    
+                                # Create closing edge if needed
+                                if not np.array_equal(wire_vertices[0], wire_vertices[-1]):
+                                    edge = Edge.ByStartVertexEndVertex(topologic_vertices[-1], topologic_vertices[0])
+                                    edges.append(edge)
+                                    
+                                wire = Wire.ByEdges(edges)
+                            
+                            # Check if wire is closed before creating face
+                            if not wire.IsClosed():
+                                logger.debug(f"Wire not closed for face in {ifc_element.GlobalId}, skipping")
+                                continue
+                                
+                            # Create face from wire
+                            face = Face.ByWire(wire)
+                            
+                            if face:
+                                all_faces.append(face)
+                            
+                        except Exception as face_error:
+                            logger.debug(f"Error creating face: {str(face_error)}")
+                            continue
+                    
+                    # Check if we have enough faces to create a cell
+                    if len(all_faces) < 4:  # A cell needs at least 4 faces (tetrahedron)
+                        logger.debug(f"Not enough valid faces ({len(all_faces)}) to create a cell for {ifc_element.GlobalId}")
+                        if retry < max_retries - 1:
+                            logger.debug(f"Retrying with increased tolerance {current_tolerance}")
+                            continue
+                        return None
+                    
+                    # Try to create a cell from faces
+                    try:
+                        cell = Cell.ByFaces(all_faces, current_tolerance)
+                        if cell:
+                            logger.debug(f"Successfully created Cell with {len(all_faces)} faces for {ifc_element.GlobalId}")
+                            return cell
+                    except Exception as cell_error:
+                        logger.debug(f"Error creating cell on attempt {retry+1}: {str(cell_error)}")
+                        if retry < max_retries - 1:
+                            continue
+                        else:
+                            logger.warning(f"Failed to create Cell from faces: {str(cell_error)}")
+                            return None
+                
+                except Exception as attempt_error:
+                    logger.debug(f"Error during attempt {retry+1}: {str(attempt_error)}")
+                    if retry < max_retries - 1:
+                        continue
+                    raise
             
-        return None
+            logger.warning(f"Failed to create cell after {max_retries} attempts for {ifc_element.GlobalId}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error in _create_topologic_cell for {ifc_element.GlobalId}: {str(e)}")
+            return None
     
-    def _create_topologic_face(self, vertices: np.ndarray, faces: List[int], ifc_element: Any) -> Optional[Any]:
+    def _create_topologic_face(self, vertices: np.ndarray, faces: List[int], ifc_element: Any, max_retries: int = 3, tolerance: float = 0.001) -> Optional[Any]:
         """
-        Create a TopologicPy Face from IFC geometry data.
+        Create a TopologicPy Face from IFC geometry data with improved error handling.
         
         Args:
             vertices: Array of vertex coordinates
             faces: List of face indices
             ifc_element: Original IFC element
+            max_retries: Maximum number of retries with increasing tolerance (default: 3)
+            tolerance: Initial tolerance value for geometry operations (default: 0.001)
             
         Returns:
             TopologicPy Face if successful, None otherwise
         """
         try:
             # Check if we have enough data
-            if len(vertices) < 3 or len(faces) < 3:  # Minimum for a triangle
-                logger.debug(f"Not enough vertices/faces for Face: {len(vertices)} vertices, {len(faces)} face indices")
+            if len(vertices) == 0 or len(faces) == 0:
+                logger.debug(f"Element {ifc_element.GlobalId} has empty face geometry")
                 return None
                 
-            # Create topologic vertices
-            topologic_vertices = []
-            for vertex in vertices:
-                topologic_vertex = Vertex.ByCoordinates(vertex[0], vertex[1], vertex[2])
-                topologic_vertices.append(topologic_vertex)
-            
-            # Try to create at least one valid face
-            i = 0
-            while i < len(faces):
+            # Try with increasing tolerance if needed
+            for retry in range(max_retries):
+                current_tolerance = tolerance * (1 + retry)
+                
                 try:
-                    # Get number of vertices in this face
-                    num_vertices = faces[i]
-                    i += 1
-                    
-                    # Check if we have enough data remaining
-                    if i + num_vertices > len(faces):
-                        logger.warning(f"Face index out of range: i={i}, num_vertices={num_vertices}, len(faces)={len(faces)}")
-                        break
-                    
-                    # Get the indices for this face
-                    face_indices = faces[i:i+num_vertices]
-                    i += num_vertices
-                    
-                    # Skip faces with too few vertices
+                    # Convert the indices to a list of vertices for the face
+                    face_indices = faces
                     if len(face_indices) < 3:
-                        logger.debug("Skipping face with fewer than 3 vertices")
-                        continue
-                    
-                    # Check if indices are in valid range
-                    if max(face_indices) >= len(topologic_vertices) or min(face_indices) < 0:
-                        logger.warning(f"Invalid vertex index in face: {face_indices}")
-                        continue
+                        logger.debug(f"Face for {ifc_element.GlobalId} has fewer than 3 vertices")
+                        return None
                         
-                    # Create wire from vertices
-                    wire_vertices = []
-                    for idx in face_indices:
-                        wire_vertices.append(topologic_vertices[idx])
-                    
-                    # Add closing vertex if not already closed
-                    if face_indices[0] != face_indices[-1]:
-                        wire_vertices.append(topologic_vertices[face_indices[0]])
-                    
-                    # Create wire and face
-                    wire = Wire.ByVertices(wire_vertices)
-                    if wire:
-                        face = Face.ByWire(wire)
-                        if face:
-                            logger.debug(f"Created Face with {len(wire_vertices)} vertices")
-                            return face
+                    # Create a wire from the vertices
+                    face_vertices = []
+                    for i in range(len(face_indices)):
+                        if i >= len(vertices):
+                            logger.warning(f"Face index out of range: i={i}, num_vertices={len(vertices)}, len(faces)={len(faces)}")
+                            return None
                             
-                except Exception as face_error:
-                    logger.warning(f"Error processing face: {str(face_error)}")
-                    # Continue to the next face
-                    continue
+                        vertex_index = face_indices[i]
+                        if vertex_index >= len(vertices):
+                            logger.warning(f"Vertex index out of range: index={vertex_index}, len(vertices)={len(vertices)}")
+                            return None
+                            
+                        face_vertices.append(vertices[vertex_index])
+                    
+                    # Add the first vertex to the end to ensure the wire is closed
+                    if len(face_vertices) > 0 and not np.array_equal(face_vertices[0], face_vertices[-1]):
+                        face_vertices.append(face_vertices[0])
+                    
+                    # Create vertices
+                    topologic_vertices = []
+                    for v in face_vertices:
+                        topologic_vertex = Vertex.ByCoordinates(float(v[0]), float(v[1]), float(v[2]))
+                        topologic_vertices.append(topologic_vertex)
+                    
+                    # Create wire - with explicit closure check
+                    try:
+                        # First try regular creation
+                        wire = Wire.ByVertices(topologic_vertices, close=True)
+                    except Exception as wire_error:
+                        logger.debug(f"Wire creation failed, trying alternative approach: {str(wire_error)}")
+                        # Try an alternative approach - create separate edges and then a wire
+                        edges = []
+                        for i in range(len(topologic_vertices) - 1):
+                            edge = Edge.ByStartVertexEndVertex(topologic_vertices[i], topologic_vertices[i+1])
+                            edges.append(edge)
+                        # Add closing edge if needed
+                        if not np.array_equal(face_vertices[0], face_vertices[-1]):
+                            edge = Edge.ByStartVertexEndVertex(topologic_vertices[-1], topologic_vertices[0])
+                            edges.append(edge)
+                        wire = Wire.ByEdges(edges)
+                    
+                    # Check if wire is closed
+                    if not wire.IsClosed():
+                        if retry < max_retries - 1:
+                            logger.debug(f"Wire not closed, retrying with increased tolerance {current_tolerance}")
+                            continue
+                        else:
+                            logger.warning(f"Wire not closed after {max_retries} attempts for {ifc_element.GlobalId}")
+                            return None
+                    
+                    # Create face
+                    face = Face.ByWire(wire)
+                    
+                    if face:
+                        return face
+                    else:
+                        logger.debug(f"Face.ByWire returned None for {ifc_element.GlobalId}")
+                        if retry < max_retries - 1:
+                            continue
+                        return None
+                        
+                except Exception as e:
+                    logger.debug(f"Error creating face on attempt {retry+1}: {str(e)}")
+                    if retry < max_retries - 1:
+                        continue
+                    raise
             
-            # If we get here, we couldn't create any valid faces
-            logger.debug("Could not create any valid Face from geometry")
+            logger.warning(f"Failed to create face after {max_retries} attempts for {ifc_element.GlobalId}")
+            return None
             
         except Exception as e:
-            logger.error(f"Error creating TopologicPy Face: {str(e)}")
-            
-        return None
+            logger.error(f"Error in _create_topologic_face for {ifc_element.GlobalId}: {str(e)}")
+            return None
     
     def _create_topologic_edge(self, vertices: np.ndarray, faces: List[int], ifc_element: Any) -> Optional[Any]:
         """
@@ -545,8 +617,8 @@ class TopologicAnalyzer:
         adjacency_map = {}
         
         try:
-            # Get all IFC elements from the parser
-            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
+            # Get all IFC elements from the parser - use robust method to get file
+            ifc_model = self._get_ifc_model()
             all_elements = ifc_model.by_type("IfcElement")
             
             logger.info(f"Processing {len(all_elements)} elements for adjacency relationships")
@@ -794,14 +866,15 @@ class TopologicAnalyzer:
         """
         Extract containment relationships between topological entities.
         
-        Containment is defined as one element being fully contained within another.
+        Containment is defined as one element being fully inside another.
         
         Args:
             tolerance: Tolerance for containment detection (distance in model units)
             
         Returns:
-            Dictionary mapping container GlobalIds to lists of contained GlobalIds
+            Dictionary mapping GlobalIds to lists of contained GlobalIds
         """
+        self._check_topologicpy()
         self._check_parser()
         
         # Return cached result if available
@@ -811,274 +884,207 @@ class TopologicAnalyzer:
         containment_map = {}
         
         try:
-            # If TopologicPy is available, use it for more accurate containment detection
-            if self._check_topologic_available():
-                logger.info("Using TopologicPy for containment relationship detection")
+            # Get all IFC elements from the parser - use robust method to get file
+            ifc_model = self._get_ifc_model()
+            all_elements = ifc_model.by_type("IfcElement")
+            
+            logger.info(f"Processing {len(all_elements)} elements for containment relationships")
+            
+            # Ensure all elements are converted to topologic entities
+            for element in all_elements:
+                if hasattr(element, "GlobalId") and element.GlobalId not in self.topologic_entities:
+                    self.convert_ifc_to_topologic(element)
+            
+            # Get all GlobalIds that were successfully converted
+            global_ids = list(self.topologic_entities.keys())
+            logger.info(f"Found {len(global_ids)} successfully converted elements")
+            
+            # Create a list of entities with their GlobalIds
+            entities_with_ids = [(gid, self.topologic_entities[gid]) for gid in global_ids]
+            
+            # Initialize containment map for all elements
+            for gid in global_ids:
+                containment_map[gid] = []
+            
+            # Fallback to IFC-based containment if very few entities have been converted
+            if len(entities_with_ids) < 10:
+                logger.warning("Few topologic entities available, using IFC-based containment")
                 
-                # Get all topological entities
-                entities = self._get_topologic_entities()
+                # Look at all spaces and their contained elements
+                for element in all_elements:
+                    if not hasattr(element, "GlobalId"):
+                        continue
+                        
+                    # Find spaces that elements are contained in
+                    if element.is_a("IfcSpace"):
+                        # Find elements contained in this space
+                        for rel in element.ContainsElements if hasattr(element, "ContainsElements") else []:
+                            if not hasattr(rel, "RelatedElements"):
+                                continue
+                                
+                            for contained in rel.RelatedElements:
+                                if not hasattr(contained, "GlobalId"):
+                                    continue
+                                    
+                                if contained.GlobalId in global_ids:
+                                    containment_map[element.GlobalId].append(contained.GlobalId)
+            
+            else:
+                # Use topologic entities for containment detection
+                logger.info(f"Checking {len(entities_with_ids)} pairs of elements for containment")
                 
-                # Log the number of entities
-                logger.info(f"Checking containment relationships among {len(entities)} topological entities")
-                
-                # Initialize progress tracking
+                # Counter for logging
                 checked_pairs = 0
                 containment_found = 0
                 
-                # Check for containment between pairs of entities
-                for i, entity_data1 in enumerate(entities):
-                    entity1 = entity_data1.get("topology")
-                    entity1_id = entity_data1.get("id")
-                    entity1_type = entity_data1.get("type")
+                # Check pairs of elements for containment
+                for i in range(len(entities_with_ids)):
+                    gid1, entity1 = entities_with_ids[i]
                     
-                    # Skip non-container types
-                    if not entity1 or not entity1_id:
-                        continue
-                    
-                    # Only consider cells, cellcomplexes, or spaces as potential containers
-                    if not (isinstance(entity1, Cell) or 
-                            entity1_type in ["IfcSpace", "IfcBuilding", "IfcBuildingStorey"]):
-                        continue
-                    
-                    # Initialize entry for this container
-                    if entity1_id not in containment_map:
-                        containment_map[entity1_id] = []
-                    
-                    for j, entity_data2 in enumerate(entities):
-                        # Skip self-comparison
-                        if i == j:
-                            continue
-                            
-                        entity2 = entity_data2.get("topology")
-                        entity2_id = entity_data2.get("id")
-                        entity2_type = entity_data2.get("type")
-                        
-                        # Skip invalid entities
-                        if not entity2 or not entity2_id:
-                            continue
-                            
-                        # Skip if already found as contained
-                        if entity2_id in containment_map.get(entity1_id, []):
-                            continue
-                            
-                        # Skip if not physically containable
-                        if entity2_type in ["IfcBuilding", "IfcBuildingStorey", "IfcSite"]:
-                            continue
+                    for j in range(i+1, len(entities_with_ids)):
+                        gid2, entity2 = entities_with_ids[j]
                         
                         checked_pairs += 1
                         if checked_pairs % 1000 == 0:
                             logger.info(f"Checked {checked_pairs} pairs, found {containment_found} containments")
                         
-                        # Use direct IFC relationships for more reliable containment
-                        direct_containment = self._check_direct_containment(entity1_id, entity2_id)
-                        if direct_containment:
-                            if entity2_id not in containment_map[entity1_id]:
-                                containment_map[entity1_id].append(entity2_id)
-                                containment_found += 1
-                                logger.debug(f"Found direct containment: {entity1_id} contains {entity2_id}")
+                        # Skip if same element
+                        if gid1 == gid2:
                             continue
-                            
-                        try:
-                            # Topological containment check
-                            # Try to use Contains method if available
-                            if hasattr(entity1, "Contains") and callable(entity1.Contains):
-                                if entity1.Contains(entity2, tolerance):
-                                    if entity2_id not in containment_map[entity1_id]:
-                                        containment_map[entity1_id].append(entity2_id)
-                                        containment_found += 1
-                                        logger.debug(f"Found topological containment: {entity1_id} ({entity1_type}) contains {entity2_id} ({entity2_type})")
-                        except Exception as e:
-                            logger.debug(f"Error checking containment between {entity1_id} and {entity2_id}: {str(e)}")
-            
-            # Fallback to IFC structure relationships if no or few containments found
-            if not containment_map or sum(len(contained) for contained in containment_map.values()) < 10:
-                logger.info("Few containment relationships found through topology, checking IFC relationships")
-                
-                # Check spatial structure containment
-                ifc_model = self.ifc_parser.file
-                
-                # Get all building storeys
-                storeys = ifc_model.by_type("IfcBuildingStorey")
-                for storey in storeys:
-                    if not hasattr(storey, "GlobalId"):
-                        continue
                         
-                    storey_id = storey.GlobalId
-                    
-                    # Initialize entry for this storey
-                    if storey_id not in containment_map:
-                        containment_map[storey_id] = []
-                    
-                    # Get elements contained in this storey
-                    for rel in storey.ContainsElements if hasattr(storey, "ContainsElements") else []:
-                        if not hasattr(rel, "RelatedElements"):
-                            continue
-                            
-                        for element in rel.RelatedElements:
-                            if not hasattr(element, "GlobalId"):
-                                continue
-                                
-                            element_id = element.GlobalId
-                            if element_id not in containment_map[storey_id]:
-                                containment_map[storey_id].append(element_id)
-                                logger.debug(f"Found IFC containment: {storey_id} contains {element_id}")
-                    
-                    # Get spaces contained in this storey
-                    for rel in storey.IsDecomposedBy if hasattr(storey, "IsDecomposedBy") else []:
-                        if not hasattr(rel, "RelatedObjects"):
-                            continue
-                            
-                        for space in rel.RelatedObjects:
-                            if not space.is_a("IfcSpace") or not hasattr(space, "GlobalId"):
-                                continue
-                                
-                            space_id = space.GlobalId
-                            if space_id not in containment_map[storey_id]:
-                                containment_map[storey_id].append(space_id)
-                                logger.debug(f"Found IFC containment: {storey_id} contains space {space_id}")
-                
-                # Get all spaces
-                spaces = ifc_model.by_type("IfcSpace")
-                for space in spaces:
-                    if not hasattr(space, "GlobalId"):
-                        continue
+                        # Check containment based on topology type
+                        is_contained = False
                         
-                    space_id = space.GlobalId
-                    
-                    # Initialize entry for this space
-                    if space_id not in containment_map:
-                        containment_map[space_id] = []
-                    
-                    # Get elements contained in this space
-                    for rel in space.ContainsElements if hasattr(space, "ContainsElements") else []:
-                        if not hasattr(rel, "RelatedElements"):
-                            continue
-                            
-                        for element in rel.RelatedElements:
-                            if not hasattr(element, "GlobalId"):
-                                continue
+                        # Handle the case where entity1 or entity2 is a list
+                        entity1_list = [entity1] if not isinstance(entity1, list) else entity1
+                        entity2_list = [entity2] if not isinstance(entity2, list) else entity2
+                        
+                        # Check each combination
+                        for entity1_item in entity1_list:
+                            if is_contained:
+                                break
                                 
-                            element_id = element.GlobalId
-                            if element_id not in containment_map[space_id]:
-                                containment_map[space_id].append(element_id)
-                                logger.debug(f"Found IFC containment: {space_id} contains {element_id}")
+                            for entity2_item in entity2_list:
+                                try:
+                                    if isinstance(entity1_item, Cell) and isinstance(entity2_item, Cell):
+                                        # Two cells are contained if entity1 is inside entity2
+                                        is_contained = Topology.Contains(entity1_item, entity2_item, tolerance)
+                                        
+                                    elif isinstance(entity1_item, Cell) and isinstance(entity2_item, Face):
+                                        # A cell is contained if it is inside the face
+                                        faces = Topology.Faces(entity2_item)
+                                        for face in faces:
+                                            if Topology.Contains(entity1_item, face, tolerance):
+                                                is_contained = True
+                                                break
+                                                
+                                    elif isinstance(entity1_item, Face) and isinstance(entity2_item, Cell):
+                                        # A face is contained if it is inside the cell
+                                        faces = Topology.Faces(entity1_item)
+                                        for face in faces:
+                                            if Topology.Contains(face, entity2_item, tolerance):
+                                                is_contained = True
+                                                break
+                                                
+                                    elif isinstance(entity1_item, Face) and isinstance(entity2_item, Face):
+                                        # Two faces are contained if entity1 is inside entity2
+                                        is_contained = Topology.Contains(entity1_item, entity2_item, tolerance)
+                                        
+                                    elif isinstance(entity1_item, Edge) and isinstance(entity2_item, Edge):
+                                        # Two edges are contained if entity1 is inside entity2
+                                        is_contained = Topology.Contains(entity1_item, entity2_item, tolerance)
+                                        
+                                    elif isinstance(entity1_item, Edge) and (isinstance(entity2_item, Face) or isinstance(entity2_item, Cell)):
+                                        # An edge is contained if it is inside the face/cell
+                                        edges = Topology.Edges(entity2_item)
+                                        for edge in edges:
+                                            if Topology.Contains(entity1_item, edge, tolerance):
+                                                is_contained = True
+                                                break
+                                                
+                                    elif isinstance(entity2_item, Edge) and (isinstance(entity1_item, Face) or isinstance(entity1_item, Cell)):
+                                        # A face/cell is contained if it is inside the edge
+                                        edges = Topology.Edges(entity1_item)
+                                        for edge in edges:
+                                            if Topology.Contains(edge, entity2_item, tolerance):
+                                                is_contained = True
+                                                break
+                                                
+                                    if is_contained:
+                                        break
+                                        
+                                except Exception as cont_err:
+                                    logger.debug(f"Error checking containment between {gid1} and {gid2}: {str(cont_err)}")
+                                    continue
+                        
+                        # Add to containment map if contained
+                        if is_contained:
+                            containment_found += 1
+                            containment_map[gid1].append(gid2)
+                            logger.debug(f"Found containment between {gid1} and {gid2}")
             
             # Cache the result
-            if not self._containment_cache:
-                self._containment_cache = {}
-                
             self._containment_cache[tolerance] = containment_map
             
-            # Log the number of relationships found
-            total_relationships = sum(len(contained) for contained in containment_map.values())
-            logger.info(f"Found {total_relationships} containment relationships")
+            # Log statistics
+            containment_count = sum(len(contained) for contained in containment_map.values())
+            logger.info(f"Found {containment_count} containment relationships between {len(containment_map)} elements")
             
         except Exception as e:
             logger.error(f"Error extracting containment relationships: {str(e)}")
             
         return containment_map
-        
-    def _check_direct_containment(self, container_id: str, element_id: str) -> bool:
+    
+    def _get_ifc_model(self):
         """
-        Check if an element is directly contained within a container using IFC relationships.
+        Get the IFC model from the parser in a robust way that handles different parser implementations.
         
-        Args:
-            container_id: GlobalId of the potential container
-            element_id: GlobalId of the element to check
-            
         Returns:
-            True if direct containment exists, False otherwise
+            The IFC model object
         """
-        ifc_model = self.ifc_parser.file
-        
-        try:
-            # Get the container element
-            container = self.ifc_parser.get_element_by_id(container_id)
-            if not container:
-                return False
-                
-            # Get the contained element
-            element = self.ifc_parser.get_element_by_id(element_id)
-            if not element:
-                return False
+        # Try different known attributes and methods to get the IFC model
+        if hasattr(self.ifc_parser, 'file'):
+            return self.ifc_parser.file
+        elif hasattr(self.ifc_parser, 'get_model') and callable(getattr(self.ifc_parser, 'get_model')):
+            return self.ifc_parser.get_model()
+        elif hasattr(self.ifc_parser, 'ifc_file'):
+            return self.ifc_parser.ifc_file
+        elif hasattr(self.ifc_parser, 'model'):
+            return self.ifc_parser.model
+        else:
+            # As a fallback, check if the parser itself is the file object or has the necessary methods
+            if hasattr(self.ifc_parser, 'by_type') and callable(getattr(self.ifc_parser, 'by_type')):
+                return self.ifc_parser
             
-            # Check if container is a space
-            if container.is_a("IfcSpace"):
-                # Check space containment relationships
-                for rel in container.ContainsElements if hasattr(container, "ContainsElements") else []:
-                    if not hasattr(rel, "RelatedElements"):
-                        continue
-                        
-                    if element in rel.RelatedElements:
-                        return True
-            
-            # Check if container is a building storey
-            elif container.is_a("IfcBuildingStorey"):
-                # Check storey containment relationships
-                for rel in container.ContainsElements if hasattr(container, "ContainsElements") else []:
-                    if not hasattr(rel, "RelatedElements"):
-                        continue
-                        
-                    if element in rel.RelatedElements:
-                        return True
-                        
-                # Check if element is in a space that's in this storey
-                if element.is_a("IfcElement"):
-                    for rel in element.ContainedInStructure if hasattr(element, "ContainedInStructure") else []:
-                        if not hasattr(rel, "RelatingStructure"):
-                            continue
-                            
-                        space = rel.RelatingStructure
-                        if not space.is_a("IfcSpace"):
-                            continue
-                            
-                        # Check if this space is in the storey
-                        for space_rel in space.ContainedInStructure if hasattr(space, "ContainedInStructure") else []:
-                            if not hasattr(space_rel, "RelatingStructure"):
-                                continue
-                                
-                            if space_rel.RelatingStructure == container:
-                                return True
-            
-            # Generic containment check for any element type
-            if hasattr(element, "ContainedInStructure"):
-                for rel in element.ContainedInStructure:
-                    if (hasattr(rel, "RelatingStructure") and 
-                        hasattr(rel.RelatingStructure, "GlobalId") and 
-                        rel.RelatingStructure.GlobalId == container_id):
-                        return True
-            
-        except Exception as e:
-            logger.debug(f"Error checking direct containment: {str(e)}")
-            
-        return False
+            # If we get here, we couldn't find a valid model
+            raise ValueError("Could not retrieve IFC model from parser. Please ensure the parser has a 'file', 'ifc_file', or 'model' attribute, or implements 'get_model()' method.")
     
     def get_space_boundaries(self) -> Dict[str, List[str]]:
         """
-        Extract space boundary relationships between spaces and building elements.
+        Extract space boundary relationships.
         
-        Uses both IFC relationships and topological analysis.
+        Space boundaries are defined as elements (walls, doors, etc.) that bound spaces.
         
         Returns:
-            Dictionary mapping space GlobalIds to lists of boundary element GlobalIds
+            Dictionary mapping space GlobalIds to lists of bounding element GlobalIds
         """
         self._check_parser()
         
         # Return cached result if available
-        if self._space_boundaries_cache:
+        if self._space_boundaries_cache is not None:
             return self._space_boundaries_cache
             
         space_boundaries = {}
         
         try:
-            # Get all IFC elements from the parser
-            ifc_model = self.ifc_parser.file  # Use file attribute instead of get_model()
-            spaces = ifc_model.by_type("IfcSpace")
+            # Get all spaces from the IFC model - use robust method to get file
+            ifc_model = self._get_ifc_model()
+            all_spaces = ifc_model.by_type("IfcSpace")
             
-            logger.info(f"Found {len(spaces)} spaces in the IFC model")
+            logger.info(f"Found {len(all_spaces)} spaces in the IFC model")
             
             # Process each space
-            for space in spaces:
+            for space in all_spaces:
                 # Skip if GlobalId is missing
                 if not hasattr(space, "GlobalId"):
                     continue
@@ -1100,7 +1106,7 @@ class TopologicAnalyzer:
                     boundary_elements.extend(ifc_model.by_type(element_type))
                 
                 # Convert spaces and boundary elements to topologic entities
-                for space in spaces:
+                for space in all_spaces:
                     if not hasattr(space, "GlobalId"):
                         continue
                         
@@ -1181,7 +1187,7 @@ class TopologicAnalyzer:
         
         try:
             # Get all elements from the IFC model
-            ifc_model = self.ifc_parser.file
+            ifc_model = self._get_ifc_model()
             all_elements = []
             
             # Get elements by type
@@ -1413,53 +1419,51 @@ class TopologicAnalyzer:
     
     def analyze_building_topology(self) -> Dict[str, Any]:
         """
-        Perform full topological analysis of the building model.
+        High-level method to analyze all topological relationships in the building.
         
         Returns:
-            Dictionary with topological analysis results including:
-            - adjacency: Adjacency relationships
-            - containment: Containment relationships
-            - space_boundaries: Space boundary relationships
-            - connectivity: Overall connectivity graph
+            Dictionary containing all topological analysis results
         """
         self._check_parser()
         
-        analysis_results = {
-            "adjacency": {},
-            "containment": {},
-            "space_boundaries": {},
-            "connectivity": {}
-        }
+        results = {}
         
-        # Extract adjacency relationships
         try:
-            adjacency_map = self.get_adjacency_relationships()
-            analysis_results["adjacency"] = adjacency_map
-        except Exception as e:
-            logger.error(f"Error extracting adjacency relationships: {str(e)}")
-        
-        # Extract containment relationships
-        try:
-            containment_map = self.get_containment_relationships()
-            analysis_results["containment"] = containment_map
-        except Exception as e:
-            logger.error(f"Error extracting containment relationships: {str(e)}")
+            # Get the IFC model - use robust method to get file
+            ifc_model = self._get_ifc_model()
             
-        # Extract space boundary relationships
-        try:
-            space_boundaries = self.get_space_boundaries()
-            analysis_results["space_boundaries"] = space_boundaries
-        except Exception as e:
-            logger.error(f"Error extracting space boundary relationships: {str(e)}")
+            # Extract adjacency relationships
+            try:
+                adjacency_map = self.get_adjacency_relationships()
+                results["adjacency"] = adjacency_map
+            except Exception as e:
+                logger.error(f"Error extracting adjacency relationships: {str(e)}")
             
-        # Generate connectivity graph
-        try:
-            connectivity_graph = self.get_connectivity_graph()
-            analysis_results["connectivity"] = connectivity_graph
+            # Extract containment relationships
+            try:
+                containment_map = self.get_containment_relationships()
+                results["containment"] = containment_map
+            except Exception as e:
+                logger.error(f"Error extracting containment relationships: {str(e)}")
+            
+            # Extract space boundary relationships
+            try:
+                space_boundaries = self.get_space_boundaries()
+                results["space_boundaries"] = space_boundaries
+            except Exception as e:
+                logger.error(f"Error extracting space boundary relationships: {str(e)}")
+            
+            # Generate connectivity graph
+            try:
+                connectivity_graph = self.get_connectivity_graph()
+                results["connectivity"] = connectivity_graph
+            except Exception as e:
+                logger.error(f"Error generating connectivity graph: {str(e)}")
+            
         except Exception as e:
-            logger.error(f"Error generating connectivity graph: {str(e)}")
+            logger.error(f"Error analyzing building topology: {str(e)}")
         
-        return analysis_results 
+        return results
 
     def _get_space_boundaries_from_ifc(self, space) -> List[str]:
         """
@@ -1475,7 +1479,7 @@ class TopologicAnalyzer:
         
         try:
             # Get space boundary relationships
-            ifc_model = self.ifc_parser.file
+            ifc_model = self._get_ifc_model()
             all_space_boundaries = ifc_model.by_type("IfcRelSpaceBoundary")
             
             # Filter relationships for this space
@@ -1521,7 +1525,7 @@ class TopologicAnalyzer:
         
         try:
             # Get all IFC elements from the parser
-            ifc_model = self.ifc_parser.file
+            ifc_model = self._get_ifc_model()
             all_elements = ifc_model.by_type("IfcElement")
             spaces = ifc_model.by_type("IfcSpace")
             
@@ -1566,3 +1570,235 @@ class TopologicAnalyzer:
             logger.error(f"Error getting topologic entities: {str(e)}")
             
         return entities 
+
+    def analyze_elements(self, elements_dict: Dict[str, Any]) -> List[Dict[str, str]]:
+        """
+        Analyze the topology of the given elements and extract spatial relationships.
+        
+        Args:
+            elements_dict: Dictionary of elements to analyze, keyed by GlobalId
+            
+        Returns:
+            List of relationship dictionaries in format:
+            {'source_id': str, 'target_id': str, 'relationship_type': str}
+        """
+        logger.info(f"Analyzing topology of {len(elements_dict)} elements")
+        
+        if not self._has_topologicpy:
+            logger.error("TopologicPy is not available for analysis")
+            return []
+            
+        relationships = []
+        
+        try:
+            # Setup the parser if not already done
+            if not hasattr(self, "ifc_parser") or self.ifc_parser is None:
+                logger.info(f"Setting up IFC parser from file path: {self.ifc_file_path}")
+                self.ifc_parser = ifcopenshell.open(self.ifc_file_path)
+                
+            # Convert all elements to topological entities
+            logger.info("Converting elements to topological entities...")
+            for global_id, element in elements_dict.items():
+                if global_id not in self.topologic_entities:
+                    logger.debug(f"Converting element {global_id} to topological entity")
+                    self.convert_ifc_to_topologic(element)
+            
+            # 1. Extract adjacency relationships
+            logger.info("Extracting adjacency relationships...")
+            adjacency_map = self.get_adjacency_relationships()
+            
+            adjacency_count = 0
+            for source_id, targets in adjacency_map.items():
+                for target_id in targets:
+                    # Only include relationships between the provided elements
+                    if source_id in elements_dict and target_id in elements_dict:
+                        relationships.append({
+                            'source_id': source_id,
+                            'target_id': target_id,
+                            'relationship_type': 'ADJACENT_TO'
+                        })
+                        adjacency_count += 1
+                        
+            logger.info(f"Found {adjacency_count} adjacency relationships")
+            
+            # 2. Extract containment relationships
+            logger.info("Extracting containment relationships...")
+            containment_map = self.get_containment_relationships()
+            
+            containment_count = 0
+            for container_id, contents in containment_map.items():
+                for content_id in contents:
+                    # Only include relationships between the provided elements
+                    if container_id in elements_dict and content_id in elements_dict:
+                        relationships.append({
+                            'source_id': container_id,
+                            'target_id': content_id,
+                            'relationship_type': 'CONTAINS_SPATIALLY'
+                        })
+                        
+                        # Add inverse relationship too
+                        relationships.append({
+                            'source_id': content_id,
+                            'target_id': container_id,
+                            'relationship_type': 'CONTAINED_IN'
+                        })
+                        containment_count += 2
+                        
+            logger.info(f"Found {containment_count} containment relationships")
+            
+            # 3. Extract space boundary relationships
+            logger.info("Extracting space boundary relationships...")
+            space_boundaries = self.get_space_boundaries()
+            
+            boundary_count = 0
+            for space_id, boundaries in space_boundaries.items():
+                for boundary_id in boundaries:
+                    # Only include relationships between the provided elements
+                    if space_id in elements_dict and boundary_id in elements_dict:
+                        relationships.append({
+                            'source_id': space_id,
+                            'target_id': boundary_id,
+                            'relationship_type': 'BOUNDED_BY'
+                        })
+                        
+                        # Add inverse relationship too
+                        relationships.append({
+                            'source_id': boundary_id,
+                            'target_id': space_id,
+                            'relationship_type': 'BOUNDS_SPACE'
+                        })
+                        boundary_count += 2
+                        
+            logger.info(f"Found {boundary_count} space boundary relationships")
+            
+            # 4. Add fallback relationships if no topological relationships are found
+            if not relationships:
+                logger.warning("No topological relationships found, adding fallback relationships based on IFC data")
+                relationships.extend(self._get_ifc_relationships(elements_dict))
+            
+            logger.info(f"Found total of {len(relationships)} topological relationships")
+            
+        except Exception as e:
+            logger.error(f"Error analyzing elements: {str(e)}", exc_info=True)
+        
+        return relationships
+        
+    def _get_ifc_relationships(self, elements_dict: Dict[str, Any]) -> List[Dict[str, str]]:
+        """
+        Get relationships directly from IFC model as a fallback.
+        
+        Args:
+            elements_dict: Dictionary of elements to analyze
+            
+        Returns:
+            List of relationships
+        """
+        relationships = []
+        
+        try:
+            # Get IFC model
+            ifc_model = self._get_ifc_model()
+            
+            # Process relationship for walls, windows and doors
+            for global_id, element in elements_dict.items():
+                # Find windows and doors in walls
+                if element.is_a("IfcWall") or element.is_a("IfcWallStandardCase"):
+                    # Find openings in this wall
+                    if hasattr(element, "HasOpenings"):
+                        for rel in element.HasOpenings:
+                            if hasattr(rel, "RelatedOpeningElement"):
+                                opening = rel.RelatedOpeningElement
+                                if not hasattr(opening, "GlobalId"):
+                                    continue
+                                    
+                                # Record wall-opening relationship
+                                if opening.GlobalId in elements_dict:
+                                    relationships.append({
+                                        'source_id': global_id,
+                                        'target_id': opening.GlobalId,
+                                        'relationship_type': 'HAS_OPENING'
+                                    })
+                                    
+                                    # Find elements in this opening (doors, windows)
+                                    if hasattr(opening, "HasFillings"):
+                                        for filling_rel in opening.HasFillings:
+                                            if hasattr(filling_rel, "RelatedBuildingElement"):
+                                                filling = filling_rel.RelatedBuildingElement
+                                                if not hasattr(filling, "GlobalId"):
+                                                    continue
+                                                    
+                                                # Record opening-element and wall-element relationships
+                                                if filling.GlobalId in elements_dict:
+                                                    relationships.append({
+                                                        'source_id': opening.GlobalId,
+                                                        'target_id': filling.GlobalId,
+                                                        'relationship_type': 'HAS_FILLING'
+                                                    })
+                                                    
+                                                    relationships.append({
+                                                        'source_id': global_id,
+                                                        'target_id': filling.GlobalId,
+                                                        'relationship_type': 'HOSTS'
+                                                    })
+                                                    
+                                                    relationships.append({
+                                                        'source_id': filling.GlobalId,
+                                                        'target_id': global_id,
+                                                        'relationship_type': 'HOSTED_BY'
+                                                    })
+                
+                # Find spaces that elements are related to
+                if hasattr(element, "ContainedInStructure"):
+                    for rel in element.ContainedInStructure:
+                        if hasattr(rel, "RelatingStructure"):
+                            structure = rel.RelatingStructure
+                            if not hasattr(structure, "GlobalId"):
+                                continue
+                                
+                            if structure.GlobalId in elements_dict:
+                                relationships.append({
+                                    'source_id': structure.GlobalId,
+                                    'target_id': global_id,
+                                    'relationship_type': 'CONTAINS'
+                                })
+                                
+                                relationships.append({
+                                    'source_id': global_id,
+                                    'target_id': structure.GlobalId,
+                                    'relationship_type': 'CONTAINED_IN'
+                                })
+            
+            logger.info(f"Found {len(relationships)} fallback relationships from IFC data")
+            
+        except Exception as e:
+            logger.error(f"Error getting IFC relationships: {str(e)}")
+            
+        return relationships 
+
+    def get_space_boundary_relationships(self) -> List[Dict[str, str]]:
+        """
+        Get space boundary relationships formatted as a list of relationship dictionaries.
+        
+        This method reformats the dictionary output from get_space_boundaries() into a list
+        of dictionaries compatible with adjacency and containment relationship processing.
+        
+        Returns:
+            List of dictionaries, where each dictionary contains 'source_id', 'target_id', 
+            and 'relationship_type' keys.
+        """
+        self._check_parser()
+        
+        # Get space boundaries as a dictionary
+        space_boundaries_dict = self.get_space_boundaries()
+        
+        # Convert to list of relationship dictionaries
+        relationships = []
+        for space_id, boundary_element_ids in space_boundaries_dict.items():
+            for element_id in boundary_element_ids:
+                relationships.append({
+                    'source_id': space_id,
+                    'target_id': element_id,
+                    'relationship_type': 'BOUNDS_SPACE'
+                })
+        
+        return relationships 
