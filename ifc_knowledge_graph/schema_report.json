@@ -1,0 +1,271 @@
+{
+  "schema_summary": {
+    "node_labels": 17,
+    "relationship_types": 2,
+    "property_keys": 26
+  },
+  "node_labels": [
+    "Element",
+    "Project",
+    "Site",
+    "Building",
+    "Storey",
+    "Space",
+    "Material",
+    "Type",
+    "PropertySet",
+    "Property",
+    "Beam",
+    "Door",
+    "Railing",
+    "Slab",
+    "Wall",
+    "Window",
+    "Furniture"
+  ],
+  "relationship_types": [
+    "CONTAINS",
+    "HAS_PROPERTY_SET"
+  ],
+  "label_counts": {
+    "Railing": 4,
+    "Project": 1,
+    "Material": 0,
+    "PropertySet": 31,
+    "Wall": 57,
+    "Building": 1,
+    "Window": 24,
+    "Site": 1,
+    "Beam": 8,
+    "Door": 14,
+    "Slab": 21,
+    "Furniture": 61,
+    "Space": 0,
+    "Element": 268,
+    "Property": 0,
+    "Type": 0,
+    "Storey": 4
+  },
+  "relationship_counts": {
+    "HAS_PROPERTY_SET": 2177,
+    "CONTAINS": 151
+  },
+  "hierarchical_paths": [
+    {
+      "source_label": "Element",
+      "relationship": "HAS_PROPERTY_SET",
+      "target_label": "PropertySet",
+      "frequency": 2177
+    },
+    {
+      "source_label": "Storey",
+      "relationship": "CONTAINS",
+      "target_label": "Element",
+      "frequency": 146
+    },
+    {
+      "source_label": "Element",
+      "relationship": "CONTAINS",
+      "target_label": "Element",
+      "frequency": 3
+    },
+    {
+      "source_label": "Project",
+      "relationship": "CONTAINS",
+      "target_label": "Site",
+      "frequency": 1
+    },
+    {
+      "source_label": "Project",
+      "relationship": "CONTAINS",
+      "target_label": "Building",
+      "frequency": 1
+    }
+  ],
+  "missing_relationships": [
+    {
+      "source": "Building",
+      "relationship": "CONTAINS",
+      "target": "Storey"
+    },
+    {
+      "source": "Storey",
+      "relationship": "CONTAINS",
+      "target": "Space"
+    },
+    {
+      "source": "Space",
+      "relationship": "CONTAINS",
+      "target": "Element"
+    },
+    {
+      "source": "Space",
+      "relationship": "BOUNDED_BY",
+      "target": "Wall"
+    },
+    {
+      "source": "Space",
+      "relationship": "BOUNDED_BY",
+      "target": "Window"
+    },
+    {
+      "source": "Space",
+      "relationship": "BOUNDED_BY",
+      "target": "Door"
+    },
+    {
+      "source": "Space",
+      "relationship": "BOUNDED_BY",
+      "target": "Slab"
+    },
+    {
+      "source": "Space",
+      "relationship": "BOUNDED_BY",
+      "target": "Roof"
+    },
+    {
+      "source": "Wall",
+      "relationship": "CONNECTED_TO",
+      "target": "Wall"
+    },
+    {
+      "source": "Wall",
+      "relationship": "CONTAINS",
+      "target": "Window"
+    },
+    {
+      "source": "Wall",
+      "relationship": "CONTAINS",
+      "target": "Door"
+    },
+    {
+      "source": "Roof",
+      "relationship": "CONTAINS",
+      "target": "Skylight"
+    },
+    {
+      "source": "Element",
+      "relationship": "IS_MADE_OF",
+      "target": "Material"
+    },
+    {
+      "source": "Wall",
+      "relationship": "IS_MADE_OF",
+      "target": "Material"
+    },
+    {
+      "source": "Slab",
+      "relationship": "IS_MADE_OF",
+      "target": "Material"
+    },
+    {
+      "source": "Roof",
+      "relationship": "IS_MADE_OF",
+      "target": "Material"
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "query_pattern",
+      "description": "Use variable-length paths for spatial relationship queries",
+      "impact": "Improves recall for complex spatial queries",
+      "example": "MATCH (space:Space)-[:BOUNDED_BY*1..2]->(element) RETURN element"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Building-[:CONTAINS]->Storey relationship",
+      "impact": "Queries traversing from Building to Storey via CONTAINS will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Storey-[:CONTAINS]->Space relationship",
+      "impact": "Queries traversing from Storey to Space via CONTAINS will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Space-[:CONTAINS]->Element relationship",
+      "impact": "Queries traversing from Space to Element via CONTAINS will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Space-[:BOUNDED_BY]->Wall relationship",
+      "impact": "Queries traversing from Space to Wall via BOUNDED_BY will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Space-[:BOUNDED_BY]->Window relationship",
+      "impact": "Queries traversing from Space to Window via BOUNDED_BY will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Space-[:BOUNDED_BY]->Door relationship",
+      "impact": "Queries traversing from Space to Door via BOUNDED_BY will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Space-[:BOUNDED_BY]->Slab relationship",
+      "impact": "Queries traversing from Space to Slab via BOUNDED_BY will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Space-[:BOUNDED_BY]->Roof relationship",
+      "impact": "Queries traversing from Space to Roof via BOUNDED_BY will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Wall-[:CONNECTED_TO]->Wall relationship",
+      "impact": "Queries traversing from Wall to Wall via CONNECTED_TO will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Wall-[:CONTAINS]->Window relationship",
+      "impact": "Queries traversing from Wall to Window via CONTAINS will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Wall-[:CONTAINS]->Door relationship",
+      "impact": "Queries traversing from Wall to Door via CONTAINS will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Roof-[:CONTAINS]->Skylight relationship",
+      "impact": "Queries traversing from Roof to Skylight via CONTAINS will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Element-[:IS_MADE_OF]->Material relationship",
+      "impact": "Queries traversing from Element to Material via IS_MADE_OF will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Wall-[:IS_MADE_OF]->Material relationship",
+      "impact": "Queries traversing from Wall to Material via IS_MADE_OF will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Slab-[:IS_MADE_OF]->Material relationship",
+      "impact": "Queries traversing from Slab to Material via IS_MADE_OF will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    },
+    {
+      "type": "missing_relationship",
+      "description": "Missing Roof-[:IS_MADE_OF]->Material relationship",
+      "impact": "Queries traversing from Roof to Material via IS_MADE_OF will return no results",
+      "suggested_fix": "Check if this relationship should exist in your IFC model"
+    }
+  ]
+}

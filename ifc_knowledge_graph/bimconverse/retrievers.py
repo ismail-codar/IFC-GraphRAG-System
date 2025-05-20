@@ -21,6 +21,13 @@ from .prompts import (
     PROMPT_TEMPLATES
 )
 
+# Import schema validation utilities
+try:
+    from .schema import SchemaMapper
+    SCHEMA_VALIDATION_AVAILABLE = True
+except ImportError:
+    SCHEMA_VALIDATION_AVAILABLE = False
+
 # Import visualization module
 try:
     from .visualization import enhance_multihop_result_with_visualization
@@ -53,6 +60,13 @@ class MultihopRetriever:
         self.driver = driver
         self.llm = llm
         self.schema = neo4j_schema or get_prompt_template("basic")
+        self.schema_mapper = None
+        if SCHEMA_VALIDATION_AVAILABLE:
+            try:
+                self.schema_mapper = SchemaMapper(driver)
+                logger.info("Schema validation is enabled for MultihopRetriever")
+            except Exception as e:
+                logger.warning(f"Failed to initialize schema validation: {e}")
         logger.info("Initialized MultihopRetriever")
 
     def _decompose_query(self, query: str) -> List[str]:
@@ -69,7 +83,7 @@ class MultihopRetriever:
         prompt = format_prompt(query, strategy="query_decomposition")
         
         # Use the LLM to decompose the query
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Parse the response to extract sub-queries
         # Improved parsing to handle numbered steps better
@@ -126,7 +140,7 @@ class MultihopRetriever:
         prompt = format_prompt(query, strategy="chain_of_thought")
         
         # Use the LLM to analyze and decompose the query
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Extract the reasoning steps and Cypher query patterns
         sub_queries = []
@@ -195,7 +209,7 @@ class MultihopRetriever:
             prompt = self.schema + f"\n\nConvert this question to a Cypher query: {query}"
         
         # Use the LLM to generate a Cypher query
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Extract Cypher from the response (improved handling of code blocks)
         cypher_query = ""
@@ -296,56 +310,405 @@ class MultihopRetriever:
             "strategy": "multihop"
         }
         
-    def search(self, query: str) -> Any:
+    def search(
+        self, 
+        query: str,
+        multihop_detection: bool = True,
+        use_cot: bool = True,
+        visualize: bool = True,
+        max_hops: int = 3
+    ) -> Dict[str, Any]:
         """
-        Alias for retrieve method to make it compatible with GraphRAG.
+        Search for results using multihop reasoning.
         
         Args:
-            query: The natural language query
+            query: User query
+            multihop_detection: Whether to detect and handle multihop queries
+            use_cot: Whether to use chain-of-thought reasoning
+            visualize: Whether to include visualizations in the results
+            max_hops: Maximum number of hops to perform
             
         Returns:
-            The results in a format compatible with GraphRAG
+            Search results with contextual information
         """
-        # Convert the query to string if it's not already
-        if not isinstance(query, str):
-            query = str(query)
+        logger.info(f"Multihop search for query: {query}")
+        
+        # Check if we need to validate or enhance the schema
+        if self.schema_mapper and multihop_detection:
+            logger.info("Using schema validation for multihop query")
+            enhanced_schema = self.schema_mapper.enhance_schema_prompt()
+            if enhanced_schema:
+                self.schema = enhanced_schema
+                logger.info("Using enhanced schema from database for better query accuracy")
+        
+        # Determine if this is a multihop query
+        is_multihop = False
+        if multihop_detection:
+            is_multihop = self._is_multihop_query(query)
+            logger.info(f"Multihop detection: {is_multihop}")
+        
+        # Initialize multihop memory for tracking context across steps
+        multihop_memory = {
+            "query": query,
+            "steps": [],
+            "accumulated_context": [],
+            "is_multihop": is_multihop
+        }
+        
+        if is_multihop:
+            # Handle multihop reasoning
+            return self._process_multihop_query(query, use_cot, visualize, max_hops, multihop_memory)
+        else:
+            # Handle single hop query
+            return self._process_single_hop_query(query, use_cot, visualize, multihop_memory)
+    
+    def _is_multihop_query(self, query: str) -> bool:
+        """
+        Determine if a query requires multihop reasoning.
+        
+        Args:
+            query: User query
             
-        # Get the results using the retrieve method
-        results = self.retrieve(query)
+        Returns:
+            Boolean indicating if this is a multihop query
+        """
+        # Use the chain-of-thought prompt template
+        prompt = format_prompt(query, strategy="chain_of_thought")
         
-        # Create a custom object that mimics the GraphRAG result format
-        class MultihopResult:
-            def __init__(self, data):
-                self.query = data["query"]
-                self.sub_queries = data["sub_queries"]
-                self.intermediate_results = data["intermediate_results"]
-                self.strategy = data["strategy"]
-                self.accumulated_context = data.get("accumulated_context", "")
-                
-                # Set a default answer for compatibility
-                if len(data["sub_queries"]) > 0:
-                    self.answer = f"Multi-hop query processed with {len(data['sub_queries'])} steps."
-                else:
-                    self.answer = "No sub-queries were generated for this query."
-                    
-                # Add a metadata field for compatibility
-                self.metadata = {
-                    "multihop": True,
-                    "num_steps": len(data["sub_queries"]),
-                    "has_visualization": False  # Will be set to True if visualization is added
-                }
-                
-        result = MultihopResult(results)
+        # Use the LLM to analyze and decompose the query
+        response = self._llm_generate(prompt)
         
-        # Enhance the result with visualization if available
-        if VISUALIZATION_AVAILABLE:
+        # Keywords that suggest multihop reasoning is needed
+        multihop_indicators = [
+            "multiple steps",
+            "first find",
+            "then find",
+            "next find",
+            "step 1",
+            "step 2",
+            "first identify",
+            "then locate",
+            "finally determine",
+            "multi-step",
+            "multihop"
+        ]
+        
+        # Check if the response contains any multihop indicators
+        for indicator in multihop_indicators:
+            if indicator.lower() in response.lower():
+                return True
+        
+        # As a fallback, check the query itself for common multihop patterns
+        multihop_query_patterns = [
+            r"(what|which|how many) .+ (that|which|who) .+",
+            r"(find|show|get) .+ (that|which) .+ (and|or) .+",
+            r"(in|on|near|adjacent to|connected to) .+ (that|which|and) .+",
+            r"(made of|composed of|built with) .+ (that|which|and) .+"
+        ]
+        
+        for pattern in multihop_query_patterns:
+            if re.search(pattern, query.lower()):
+                return True
+                
+        return False
+    
+    def _process_multihop_query(
+        self, 
+        query: str,
+        use_cot: bool,
+        visualize: bool,
+        max_hops: int,
+        multihop_memory: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Process a query that requires multihop reasoning.
+        
+        Args:
+            query: User query
+            use_cot: Whether to use chain-of-thought reasoning
+            visualize: Whether to visualize the results
+            max_hops: Maximum number of hops to perform
+            multihop_memory: Memory context for the multihop process
+            
+        Returns:
+            Search results with reasoning steps
+        """
+        logger.info("Processing as multihop query")
+        
+        # Decompose the query into sub-steps
+        sub_queries = self._decompose_query(query)
+        
+        # Track all results
+        all_results = []
+        accumulated_context = []
+        
+        # Process each sub-query
+        for i, sub_query in enumerate(sub_queries[:max_hops]):
+            logger.info(f"Processing sub-query {i+1}: {sub_query}")
+            
+            # Add context from previous steps
+            context_enriched_query = sub_query
+            if accumulated_context:
+                context_str = ". ".join(accumulated_context)
+                context_enriched_query = f"Context: {context_str}. Query: {sub_query}"
+            
+            # Execute the sub-query
+            step_result = self._process_single_hop_query(
+                context_enriched_query, 
+                use_cot, 
+                visualize and i == len(sub_queries) - 1,  # Only visualize the final step
+                multihop_memory
+            )
+            
+            # Extract key information to add to the context
+            if "result_text" in step_result and step_result["result_text"]:
+                accumulated_context.append(step_result["result_text"])
+            
+            # Record this step
+            multihop_memory["steps"].append({
+                "sub_query": sub_query,
+                "context_enriched_query": context_enriched_query,
+                "cypher": step_result.get("cypher", ""),
+                "results": step_result.get("results", []),
+                "result_text": step_result.get("result_text", "")
+            })
+            multihop_memory["accumulated_context"] = accumulated_context
+            
+            all_results.append(step_result)
+        
+        # Combine all results into a final answer
+        final_result = self._combine_multihop_results(all_results, query, multihop_memory)
+        
+        # Add visualization if requested
+        if visualize and VISUALIZATION_AVAILABLE:
             try:
-                result = enhance_multihop_result_with_visualization(result)
-                logger.info("Enhanced result with visualization")
+                enhanced_result = enhance_multihop_result_with_visualization(final_result)
+                return enhanced_result
             except Exception as e:
-                logger.error(f"Error adding visualization to result: {e}")
+                logger.error(f"Error adding visualization to multihop results: {e}")
+                return final_result
+        else:
+            return final_result
+            
+    def _process_single_hop_query(
+        self, 
+        query: str,
+        use_cot: bool,
+        visualize: bool,
+        multihop_memory: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Process a single-hop query.
+        
+        Args:
+            query: User query
+            use_cot: Whether to use chain-of-thought reasoning
+            visualize: Whether to visualize the results
+            multihop_memory: Memory context for the multihop process
+            
+        Returns:
+            Search results
+        """
+        # Select the appropriate prompt based on reasoning strategy
+        if use_cot:
+            prompt_strategy = "chain_of_thought"
+        else:
+            prompt_strategy = "basic"
+            
+        # Format the prompt
+        prompt = format_prompt(query, strategy=prompt_strategy, schema=self.schema)
+        
+        # Generate Cypher query
+        cypher = self._generate_cypher(prompt)
+        
+        # Validate and potentially fix the Cypher query if schema validation is available
+        if self.schema_mapper:
+            try:
+                validation = self.schema_mapper.validate_query_against_schema(cypher)
+                if not validation["is_valid"] and "fixed_query" in validation:
+                    logger.info(f"Fixing invalid Cypher query based on schema validation")
+                    logger.info(f"Original: {cypher}")
+                    logger.info(f"Fixed: {validation['fixed_query']}")
+                    cypher = validation["fixed_query"]
+            except Exception as e:
+                logger.warning(f"Schema validation failed: {e}")
+        
+        # Execute Cypher query
+        results = self._execute_cypher(cypher)
+        
+        # Generate a text summary of the results
+        result_text = self._generate_result_text(query, cypher, results)
+        
+        # Package the result
+        result = {
+            "query": query,
+            "cypher": cypher,
+            "results": results,
+            "result_text": result_text,
+            "multihop_memory": multihop_memory
+        }
+        
+        # Add visualization if requested
+        if visualize and VISUALIZATION_AVAILABLE:
+            try:
+                enhanced_result = enhance_multihop_result_with_visualization(result)
+                return enhanced_result
+            except Exception as e:
+                logger.error(f"Error adding visualization to results: {e}")
+                return result
+        else:
+            return result
+            
+    def _generate_result_text(
+        self, 
+        query: str, 
+        cypher: str, 
+        results: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Generate a natural language description of the query results.
+        
+        Args:
+            query: Original query
+            cypher: Cypher query executed
+            results: Query results
+            
+        Returns:
+            Natural language description of the results
+        """
+        # Create a concise result summary
+        if not results:
+            return "No results were found for this query."
+            
+        # Prepare results for LLM consumption
+        result_sample = results[:5]  # Limit to 5 to avoid token limits
+        result_str = json.dumps(result_sample, default=str)
+        
+        # Prompt the LLM to explain the results
+        prompt = f"""
+        Original query: {query}
+        
+        Cypher query executed: {cypher}
+        
+        Results (limited to 5 items): {result_str}
+        
+        Total results found: {len(results)}
+        
+        Please provide a concise natural language summary of these results. Explain what was found and how it answers the original query.
+        """
+        
+        try:
+            # Generate the result text using the LLM
+            response = self._llm_generate(prompt)
+            return response
+        except Exception as e:
+            logger.error(f"Error generating result text: {e}")
+            # Fallback: create a basic summary
+            if len(results) == 1:
+                return f"Found 1 result for the query: {query}"
+            else:
+                return f"Found {len(results)} results for the query: {query}"
                 
-        return result
+    def _combine_multihop_results(
+        self, 
+        results: List[Dict[str, Any]], 
+        query: str,
+        multihop_memory: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Combine results from multiple reasoning steps into a final answer.
+        
+        Args:
+            results: Results from each reasoning step
+            query: Original query
+            multihop_memory: Memory context for the multihop process
+            
+        Returns:
+            Combined results
+        """
+        # Extract key information from each step
+        steps_info = []
+        for i, step in enumerate(multihop_memory["steps"]):
+            step_summary = {
+                "step_number": i+1,
+                "sub_query": step["sub_query"],
+                "cypher": step["cypher"],
+                "result_summary": step["result_text"]
+            }
+            steps_info.append(step_summary)
+            
+        # Get the final result data from the last step
+        final_result = results[-1] if results else {}
+        
+        # Add multihop reasoning information
+        final_result["original_query"] = query
+        final_result["is_multihop"] = True
+        final_result["reasoning_steps"] = steps_info
+        final_result["multihop_memory"] = multihop_memory
+        
+        # Generate a complete answer that combines all steps
+        final_result["final_answer"] = self._generate_final_answer(query, multihop_memory)
+        
+        return final_result
+        
+    def _generate_final_answer(self, query: str, multihop_memory: Dict[str, Any]) -> str:
+        """
+        Generate a comprehensive final answer from multihop reasoning steps.
+        
+        Args:
+            query: Original query
+            multihop_memory: Memory context with all reasoning steps
+            
+        Returns:
+            Final comprehensive answer
+        """
+        # Create a summary of the reasoning steps
+        steps_summary = []
+        for i, step in enumerate(multihop_memory["steps"]):
+            step_text = f"Step {i+1}: {step['sub_query']}\nResults: {step['result_text']}"
+            steps_summary.append(step_text)
+            
+        steps_str = "\n\n".join(steps_summary)
+        
+        # Prompt the LLM to create a final answer
+        prompt = f"""
+        Original query: {query}
+        
+        The query was answered through a multi-hop reasoning process with the following steps:
+        
+        {steps_str}
+        
+        Please provide a comprehensive final answer to the original query, synthesizing the information from all reasoning steps.
+        The answer should be clear, concise, and directly address the original question.
+        """
+        
+        try:
+            # Generate the final answer using the LLM
+            response = self._llm_generate(prompt)
+            return response
+        except Exception as e:
+            logger.error(f"Error generating final answer: {e}")
+            # Fallback: concatenate the individual step results
+            final_texts = [step.get("result_text", "") for step in multihop_memory["steps"]]
+            return " ".join(final_texts)
+
+    def _llm_generate(self, prompt: str) -> str:
+        """Adapter method to handle API differences in LLM implementations"""
+        try:
+            # Try the invoke method first (newer API)
+            if hasattr(self.llm, 'invoke'):
+                return self.llm.invoke(prompt)
+            # Fall back to generate method (older API)
+            elif hasattr(self.llm, 'generate'):
+                return self.llm.generate(prompt)
+            # Last resort: call the object directly if it's callable
+            elif callable(self.llm):
+                return self.llm(prompt)
+            else:
+                raise AttributeError("LLM object has no invoke or generate method and is not callable")
+        except Exception as e:
+            logger.error(f"Error generating text with LLM: {e}")
+            return f"ERROR: Could not generate text with LLM: {str(e)}"
 
 
 class ParentChildRetriever:
@@ -415,7 +778,7 @@ class ParentChildRetriever:
         )
         
         # Use the LLM to generate a hierarchical Cypher query
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Extract Cypher from the response
         cypher_query = ""
@@ -474,6 +837,37 @@ class ParentChildRetriever:
                 "strategy": "parent_child"
             }
 
+    def _llm_generate(self, prompt: str) -> str:
+        """
+        Adapter method to handle API differences between different LLM implementations.
+        Some LLMs use generate() method while others (like neo4j-graphrag) use invoke().
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            
+        Returns:
+            The LLM's response as a string
+        """
+        try:
+            # Try the 'invoke' method (neo4j-graphrag OpenAILLM)
+            if hasattr(self.llm, 'invoke'):
+                response = self.llm.invoke(prompt)
+                # Handle different response formats
+                if hasattr(response, 'content'):
+                    return response.content
+                elif isinstance(response, str):
+                    return response
+                else:
+                    return str(response)
+            # Fall back to 'generate' method (custom implementation)
+            elif hasattr(self.llm, 'generate'):
+                return self.llm.generate(prompt)
+            else:
+                raise AttributeError("LLM object has neither 'invoke' nor 'generate' method")
+        except Exception as e:
+            logger.error(f"Error generating response from LLM: {e}")
+            return f"Error: {str(e)}"
+
 
 class HypotheticalQuestionRetriever:
     """
@@ -493,9 +887,9 @@ class HypotheticalQuestionRetriever:
         
         Args:
             driver: Neo4j driver instance
-            llm: LLM instance for generating questions and queries
+            llm: LLM instance for generating questions and Cypher queries
             neo4j_schema: Optional schema string to override the default
-            question_cache: Optional pre-generated questions for building elements
+            question_cache: Optional cache for already generated questions
         """
         self.driver = driver
         self.llm = llm
@@ -523,7 +917,7 @@ class HypotheticalQuestionRetriever:
         prompt += f"\n\nGenerate {count} specific questions about {element_type}s in a building model:"
         
         # Use the LLM to generate questions
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Parse the response to extract questions
         questions = []
@@ -566,7 +960,7 @@ class HypotheticalQuestionRetriever:
         Return only the best matching question, enclosed in quotes.
         """
         
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Extract the question from the response (assuming it's enclosed in quotes)
         match = re.search(r'"([^"]*)"', response)
@@ -592,7 +986,7 @@ class HypotheticalQuestionRetriever:
         prompt = self.schema + f"\n\nConvert this question to a Cypher query: {question}"
         
         # Use the LLM to generate a Cypher query
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Extract Cypher from the response
         cypher_query = ""
@@ -669,6 +1063,37 @@ class HypotheticalQuestionRetriever:
                 "strategy": "hypothetical_question"
             }
 
+    def _llm_generate(self, prompt: str) -> str:
+        """
+        Adapter method to handle API differences between different LLM implementations.
+        Some LLMs use generate() method while others (like neo4j-graphrag) use invoke().
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            
+        Returns:
+            The LLM's response as a string
+        """
+        try:
+            # Try the 'invoke' method (neo4j-graphrag OpenAILLM)
+            if hasattr(self.llm, 'invoke'):
+                response = self.llm.invoke(prompt)
+                # Handle different response formats
+                if hasattr(response, 'content'):
+                    return response.content
+                elif isinstance(response, str):
+                    return response
+                else:
+                    return str(response)
+            # Fall back to 'generate' method (custom implementation)
+            elif hasattr(self.llm, 'generate'):
+                return self.llm.generate(prompt)
+            else:
+                raise AttributeError("LLM object has neither 'invoke' nor 'generate' method")
+        except Exception as e:
+            logger.error(f"Error generating response from LLM: {e}")
+            return f"Error: {str(e)}"
+
 
 class HybridRetriever:
     """
@@ -744,7 +1169,7 @@ class HybridRetriever:
         """
         
         # Use the LLM to generate a hybrid Cypher query
-        response = self.llm.generate(prompt)
+        response = self._llm_generate(prompt)
         
         # Extract Cypher from the response
         cypher_query = ""
@@ -804,6 +1229,37 @@ class HybridRetriever:
                 "strategy": "hybrid"
             }
 
+    def _llm_generate(self, prompt: str) -> str:
+        """
+        Adapter method to handle API differences between different LLM implementations.
+        Some LLMs use generate() method while others (like neo4j-graphrag) use invoke().
+        
+        Args:
+            prompt: The prompt to send to the LLM
+            
+        Returns:
+            The LLM's response as a string
+        """
+        try:
+            # Try the 'invoke' method (neo4j-graphrag OpenAILLM)
+            if hasattr(self.llm, 'invoke'):
+                response = self.llm.invoke(prompt)
+                # Handle different response formats
+                if hasattr(response, 'content'):
+                    return response.content
+                elif isinstance(response, str):
+                    return response
+                else:
+                    return str(response)
+            # Fall back to 'generate' method (custom implementation)
+            elif hasattr(self.llm, 'generate'):
+                return self.llm.generate(prompt)
+            else:
+                raise AttributeError("LLM object has neither 'invoke' nor 'generate' method")
+        except Exception as e:
+            logger.error(f"Error generating response from LLM: {e}")
+            return f"Error: {str(e)}"
+
 
 class RetrievalStrategySelector:
     """
@@ -853,33 +1309,38 @@ class RetrievalStrategySelector:
         Returns:
             The name of the selected strategy
         """
-        prompt = f"""
-        I need to select the most appropriate retrieval strategy for a query about a building model.
-        The query is: "{query}"
+        # Prompt the LLM to classify the query
+        prompt = """Based on the following query, determine the most appropriate retrieval strategy from the options below:
+
+1. text2cypher - Simple queries that can be translated directly to Cypher
+2. hybrid - Queries requiring both semantic similarity and graph traversal
+3. multihop - Complex queries requiring multiple steps of reasoning
+4. parent_child - Queries about hierarchical relationships between elements
+5. hypothetical - Queries that may benefit from hypothetical questions about element types
+
+Query: """
+        prompt += query
+        prompt += "\n\nStrategy (just return the name, e.g. 'text2cypher'):"
         
-        Available strategies:
-        - multihop: For complex queries that require multiple steps or traversing multiple relationships
-        - parent_child: For queries about specific elements where their place in the building hierarchy is important
-        - hypothetical_question: For queries that are similar to common questions about buildings
-        {- "hybrid: For queries that benefit from both vector similarity and graph traversal" if self.embeddings_provider else ""}
+        # Use the LLM to determine the strategy
+        response = self._llm_generate(prompt)
         
-        Return only the name of the best strategy, e.g., "multihop", "parent_child", "hypothetical_question", or "hybrid".
-        """
+        # Parse the response to extract the strategy name
+        strategy = response.strip().lower()
         
-        # Use the LLM to select a strategy
-        response = self.llm.generate(prompt)
-        
-        # Extract the strategy name from the response
-        strategies = list(self.retrievers.keys())
-        selected_strategy = "multihop"  # Default
-        
-        for strategy in strategies:
-            if strategy.lower() in response.lower():
-                selected_strategy = strategy
+        # Extract just the strategy name if the LLM included additional text
+        for known_strategy in ["text2cypher", "hybrid", "multihop", "parent_child", "hypothetical"]:
+            if known_strategy in strategy:
+                strategy = known_strategy
                 break
         
-        logger.info(f"Selected strategy for query: {selected_strategy}")
-        return selected_strategy
+        # Default to text2cypher if no valid strategy was found
+        if strategy not in self.retrievers:
+            logger.warning(f"Unknown strategy '{strategy}', defaulting to text2cypher")
+            strategy = "text2cypher"
+            
+        logger.info(f"Selected '{strategy}' strategy for query: {query}")
+        return strategy
     
     def retrieve(self, query: str) -> Dict[str, Any]:
         """
