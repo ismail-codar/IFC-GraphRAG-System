@@ -8,6 +8,7 @@ attention to IFC knowledge graphs and building model queries.
 import logging
 from typing import Dict, List, Any, Optional, Union, Tuple
 import json
+import re
 
 from neo4j import Driver, GraphDatabase, Result
 import openai
@@ -19,6 +20,13 @@ from .prompts import (
     combine_prompts,
     PROMPT_TEMPLATES
 )
+
+# Import visualization module
+try:
+    from .visualization import enhance_multihop_result_with_visualization
+    VISUALIZATION_AVAILABLE = True
+except ImportError:
+    VISUALIZATION_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -57,64 +65,156 @@ class MultihopRetriever:
         Returns:
             A list of sub-queries
         """
-        prompt = format_prompt(query, strategy="multi_hop")
+        # Use the enhanced query decomposition prompt template
+        prompt = format_prompt(query, strategy="query_decomposition")
         
         # Use the LLM to decompose the query
         response = self.llm.generate(prompt)
         
         # Parse the response to extract sub-queries
-        # This is a simplified implementation - in practice would need more robust parsing
+        # Improved parsing to handle numbered steps better
         sub_queries = []
         lines = response.split('\n')
         current_query = ""
+        in_query = False
+        step_pattern = r"^(\d+)[\.:\)]|^Step\s+(\d+)[\.:\)]|^[•*-]"
         
-        for line in lines:
-            if line.strip().startswith("1.") or line.strip().startswith("Step 1:"):
-                # Start collecting a new sub-query
+        for i, line in enumerate(lines):
+            # Check if line starts a new step
+            if re.match(step_pattern, line.strip()):
+                # If we were already collecting a query, save it
                 if current_query:
                     sub_queries.append(current_query.strip())
+                
+                # Start a new query collection
                 current_query = line
-            elif current_query:
+                in_query = True
+            elif in_query:
                 # Continue collecting the current sub-query
                 current_query += " " + line
+                
+                # Check if this might be the end of the current step
+                # by looking ahead to see if the next line starts a new step
+                if i + 1 < len(lines) and re.match(step_pattern, lines[i+1].strip()):
+                    sub_queries.append(current_query.strip())
+                    current_query = ""
+                    in_query = False
         
         # Add the last sub-query if there is one
         if current_query:
             sub_queries.append(current_query.strip())
         
+        # If no sub-queries were identified, use chain-of-thought to create them
         if not sub_queries:
-            # If no sub-queries were identified, use the original query
-            sub_queries = [query]
+            logger.info("No sub-queries identified with decomposition, trying chain-of-thought")
+            return self._chain_of_thought_decomposition(query)
         
-        logger.info(f"Decomposed query into {len(sub_queries)} sub-queries")
+        logger.info(f"Decomposed query into {len(sub_queries)} sub-queries using decomposition prompt")
+        return sub_queries
+    
+    def _chain_of_thought_decomposition(self, query: str) -> List[str]:
+        """
+        Use chain-of-thought prompting to decompose a complex query.
+        
+        Args:
+            query: The user's query
+            
+        Returns:
+            A list of sub-queries
+        """
+        # Use the chain-of-thought prompt template
+        prompt = format_prompt(query, strategy="chain_of_thought")
+        
+        # Use the LLM to analyze and decompose the query
+        response = self.llm.generate(prompt)
+        
+        # Extract the reasoning steps and Cypher query patterns
+        sub_queries = []
+        step_blocks = []
+        current_block = ""
+        
+        lines = response.split('\n')
+        in_code_block = False
+        
+        for line in lines:
+            # Track code blocks which contain Cypher queries
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+                if not in_code_block and current_block:
+                    step_blocks.append(current_block)
+                    current_block = ""
+                continue
+            
+            # Collect lines inside code blocks
+            if in_code_block:
+                # Skip language identifier line if present
+                if line.strip().lower() == "cypher":
+                    continue
+                current_block += line + "\n"
+            elif line.strip().startswith("Step") or re.match(r"^\d+\.", line.strip()):
+                # This line marks a new reasoning step
+                if current_block:
+                    step_blocks.append(current_block)
+                current_block = line
+            elif current_block:
+                # Continue collecting the current reasoning step
+                current_block += " " + line
+        
+        # Add the last block if there is one
+        if current_block:
+            step_blocks.append(current_block)
+        
+        # Convert reasoning steps to sub-queries
+        for block in step_blocks:
+            # Extract just the reasoning as a sub-query
+            sub_queries.append(block.strip())
+        
+        logger.info(f"Decomposed query into {len(sub_queries)} sub-queries using chain-of-thought")
         return sub_queries
 
-    def _generate_cypher(self, query: str) -> str:
+    def _generate_cypher(self, query: str, previous_context: Optional[str] = None) -> str:
         """
         Generate a Cypher query for a given natural language query.
         
         Args:
             query: The natural language query
+            previous_context: Optional context from previous query steps
             
         Returns:
             A Cypher query string
         """
-        prompt = self.schema + f"\n\nConvert this question to a Cypher query: {query}"
+        # If we have previous context, use the context accumulation prompt
+        if previous_context:
+            prompt = format_prompt(
+                query, 
+                strategy="context_accumulation", 
+                previous_context=previous_context
+            )
+        else:
+            # Otherwise use the schema prompt with the query
+            prompt = self.schema + f"\n\nConvert this question to a Cypher query: {query}"
         
         # Use the LLM to generate a Cypher query
         response = self.llm.generate(prompt)
         
-        # Extract Cypher from the response (assuming it's enclosed in ```cypher...``` blocks)
+        # Extract Cypher from the response (improved handling of code blocks)
         cypher_query = ""
         if "```" in response:
             # Extract code between backticks
             parts = response.split("```")
-            if len(parts) > 1:
-                cypher_block = parts[1]
-                if cypher_block.startswith("cypher"):
-                    cypher_query = cypher_block[6:].strip()
-                else:
-                    cypher_query = cypher_block.strip()
+            for i in range(1, len(parts), 2):
+                if i < len(parts):
+                    code_block = parts[i]
+                    # Remove cypher language identifier if present
+                    if code_block.strip().startswith("cypher"):
+                        code_block = code_block[6:].strip()
+                    else:
+                        code_block = code_block.strip()
+                    
+                    # If this looks like a valid Cypher query, use it
+                    if "MATCH" in code_block or "RETURN" in code_block:
+                        cypher_query = code_block
+                        break
         else:
             # If no code blocks, use the entire response
             cypher_query = response.strip()
@@ -155,31 +255,97 @@ class MultihopRetriever:
         # Step 1: Decompose the query
         sub_queries = self._decompose_query(query)
         
-        # Step 2: Process each sub-query
+        # Step 2: Process each sub-query with context accumulation
         intermediate_results = []
+        accumulated_context = ""
+        
         for i, sub_query in enumerate(sub_queries):
             logger.info(f"Processing sub-query {i+1}/{len(sub_queries)}: {sub_query}")
             
-            # Generate Cypher
-            cypher_query = self._generate_cypher(sub_query)
+            # Generate Cypher with accumulated context
+            cypher_query = self._generate_cypher(sub_query, accumulated_context if i > 0 else None)
             
             # Execute Cypher
             results = self._execute_cypher(cypher_query)
             
             # Store intermediate results
-            intermediate_results.append({
+            step_result = {
                 "sub_query": sub_query,
                 "cypher_query": cypher_query,
                 "results": results
-            })
+            }
+            intermediate_results.append(step_result)
+            
+            # Update accumulated context with this step's results
+            if results:
+                result_summary = f"Step {i+1} found {len(results)} results. "
+                
+                # Add a sample of the results if available
+                if len(results) > 0:
+                    sample = results[0]
+                    result_summary += f"Sample result: {str(sample)}"
+                
+                accumulated_context += result_summary + "\n"
         
         # Step 3: Compile final results
         return {
             "query": query,
             "sub_queries": sub_queries,
             "intermediate_results": intermediate_results,
+            "accumulated_context": accumulated_context,
             "strategy": "multihop"
         }
+        
+    def search(self, query: str) -> Any:
+        """
+        Alias for retrieve method to make it compatible with GraphRAG.
+        
+        Args:
+            query: The natural language query
+            
+        Returns:
+            The results in a format compatible with GraphRAG
+        """
+        # Convert the query to string if it's not already
+        if not isinstance(query, str):
+            query = str(query)
+            
+        # Get the results using the retrieve method
+        results = self.retrieve(query)
+        
+        # Create a custom object that mimics the GraphRAG result format
+        class MultihopResult:
+            def __init__(self, data):
+                self.query = data["query"]
+                self.sub_queries = data["sub_queries"]
+                self.intermediate_results = data["intermediate_results"]
+                self.strategy = data["strategy"]
+                self.accumulated_context = data.get("accumulated_context", "")
+                
+                # Set a default answer for compatibility
+                if len(data["sub_queries"]) > 0:
+                    self.answer = f"Multi-hop query processed with {len(data['sub_queries'])} steps."
+                else:
+                    self.answer = "No sub-queries were generated for this query."
+                    
+                # Add a metadata field for compatibility
+                self.metadata = {
+                    "multihop": True,
+                    "num_steps": len(data["sub_queries"]),
+                    "has_visualization": False  # Will be set to True if visualization is added
+                }
+                
+        result = MultihopResult(results)
+        
+        # Enhance the result with visualization if available
+        if VISUALIZATION_AVAILABLE:
+            try:
+                result = enhance_multihop_result_with_visualization(result)
+                logger.info("Enhanced result with visualization")
+            except Exception as e:
+                logger.error(f"Error adding visualization to result: {e}")
+                
+        return result
 
 
 class ParentChildRetriever:
@@ -403,7 +569,6 @@ class HypotheticalQuestionRetriever:
         response = self.llm.generate(prompt)
         
         # Extract the question from the response (assuming it's enclosed in quotes)
-        import re
         match = re.search(r'"([^"]*)"', response)
         if match:
             best_match = match.group(1)

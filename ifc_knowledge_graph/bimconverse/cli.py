@@ -29,7 +29,7 @@ from rich.columns import Columns
 from rich.text import Text
 from rich.prompt import Prompt, Confirm
 
-from core import BIMConverseRAG, create_config_file
+from bimconverse.core import BIMConverseRAG, create_config_file
 
 # Configure logging
 logging.basicConfig(
@@ -50,6 +50,11 @@ SPECIAL_COMMANDS = {
     "/context off": "Disable conversation context",
     "/context clear": "Clear conversation context",
     "/context status": "Show conversation context status",
+    "/multihop on": "Enable multi-hop reasoning globally",
+    "/multihop off": "Disable multi-hop reasoning globally",
+    "/multihop auto on": "Enable automatic detection of multi-hop queries",
+    "/multihop auto off": "Disable automatic detection of multi-hop queries",
+    "/multihop status": "Show multi-hop reasoning status",
     "/stats": "Show database statistics",
 }
 
@@ -117,6 +122,18 @@ def create_parser() -> argparse.ArgumentParser:
         help="Enable conversation context"
     )
     
+    parser.add_argument(
+        "--multihop",
+        action="store_true",
+        help="Enable multi-hop reasoning"
+    )
+    
+    parser.add_argument(
+        "--force-multihop",
+        action="store_true",
+        help="Force use of multi-hop reasoning for the query"
+    )
+    
     return parser
 
 def print_header():
@@ -160,13 +177,31 @@ def handle_special_command(command: str, bimconverse: BIMConverseRAG) -> bool:
         bimconverse.clear_conversation_history()
         console.print("[yellow]Conversation context cleared[/yellow]")
     
-    elif command == "/context status":
+    elif command == "/multihop on":
+        bimconverse.set_multihop_enabled(True)
+        console.print("[green]Multi-hop reasoning enabled globally[/green]")
+    
+    elif command == "/multihop off":
+        bimconverse.set_multihop_enabled(False)
+        console.print("[yellow]Multi-hop reasoning disabled globally[/yellow]")
+    
+    elif command == "/multihop auto on":
+        bimconverse.set_multihop_detection(True)
+        console.print("[green]Automatic multi-hop detection enabled[/green]")
+    
+    elif command == "/multihop auto off":
+        bimconverse.set_multihop_detection(False)
+        console.print("[yellow]Automatic multi-hop detection disabled[/yellow]")
+    
+    elif command == "/context status" or command == "/multihop status":
         settings = bimconverse.get_conversation_settings()
         console.print(Panel(
-            f"[bold]Conversation Context:[/bold]\n"
-            f"Enabled: {'[green]Yes[/green]' if settings['enabled'] else '[red]No[/red]'}\n"
+            f"[bold]Conversation and Retrieval Settings:[/bold]\n"
+            f"Context Enabled: {'[green]Yes[/green]' if settings['context_enabled'] else '[red]No[/red]'}\n"
             f"Max History Length: {settings['max_history_length']}\n"
-            f"Current History Length: {settings['current_history_length']}",
+            f"Current History Entries: {settings['history_entries']}\n"
+            f"Multi-hop Enabled: {'[green]Yes[/green]' if settings['multihop_enabled'] else '[red]No[/red]'}\n"
+            f"Auto-detect Multi-hop: {'[green]Yes[/green]' if settings['multihop_detection'] else '[red]No[/red]'}",
             border_style="blue"
         ))
     
@@ -213,16 +248,26 @@ def format_result(result: Dict[str, Any], output_format: str) -> None:
         console.print(json.dumps(result, indent=2))
         return
     
-    if "error" in result and result["error"]:
+    if "error" in result:
         console.print(f"[red]Error: {result['answer']}[/red]")
         return
     
     if output_format == "text":
         # Simple text output
         console.print(result["answer"])
-        if result.get("cypher_query"):
+        
+        # Show retrieval strategy used
+        if "retrieval_strategy" in result:
+            console.print(f"\nRetrieval strategy: {result['retrieval_strategy']}")
+            
+        # Show Cypher or multi-hop details based on retrieval strategy
+        if result["retrieval_strategy"] == "multihop" and "metadata" in result and "sub_queries" in result["metadata"]:
+            console.print("\nSub-queries:")
+            for i, query in enumerate(result["metadata"]["sub_queries"]):
+                console.print(f"{i+1}. {query}")
+        elif "metadata" in result and "cypher_query" in result["metadata"]:
             console.print("\nGenerated Cypher:")
-            console.print(result["cypher_query"])
+            console.print(result["metadata"]["cypher_query"])
         return
     
     # Default: Markdown format with rich formatting
@@ -237,13 +282,27 @@ def format_result(result: Dict[str, Any], output_format: str) -> None:
         border_style="blue"
     ))
     
-    # If we have a Cypher query, add it as a panel
-    if result.get("cypher_query"):
-        panels.append(Panel(
-            result["cypher_query"],
-            title="[bold blue]Generated Cypher[/bold blue]",
-            border_style="dim"
-        ))
+    # Show different details based on retrieval strategy
+    if "retrieval_strategy" in result:
+        strategy = result["retrieval_strategy"]
+        
+        if strategy == "multihop" and "metadata" in result and "sub_queries" in result["metadata"]:
+            # Show multihop reasoning details
+            sub_queries = result["metadata"].get("sub_queries", [])
+            if sub_queries:
+                sub_query_text = "\n".join([f"{i+1}. {q}" for i, q in enumerate(sub_queries)])
+                panels.append(Panel(
+                    sub_query_text,
+                    title=f"[bold blue]Multi-hop Reasoning Steps[/bold blue]",
+                    border_style="dim"
+                ))
+        elif "metadata" in result and "cypher_query" in result["metadata"]:
+            # Show standard Cypher query
+            panels.append(Panel(
+                result["metadata"]["cypher_query"],
+                title="[bold blue]Generated Cypher[/bold blue]",
+                border_style="dim"
+            ))
     
     # Print the panels
     if len(panels) == 1:
@@ -251,13 +310,15 @@ def format_result(result: Dict[str, Any], output_format: str) -> None:
     else:
         console.print(Columns(panels))
     
-    # Print sources if available
-    if result.get("sources") and len(result["sources"]) > 0:
-        console.print("\n[bold]Sources:[/bold]")
-        for i, source in enumerate(result["sources"]):
-            source_content = source.get("content", "")
-            if source_content:
-                console.print(f"  {i+1}. {source_content[:100]}...")
+    # Print sources if available (for standard retrieval)
+    if "metadata" in result and "records" in result["metadata"] and len(result["metadata"]["records"]) > 0:
+        console.print("\n[bold]Results from database:[/bold]")
+        for i, record in enumerate(result["metadata"]["records"]):
+            if i < 3:  # Show only a few records to avoid cluttering the output
+                console.print(f"  {i+1}. {json.dumps(record, indent=2)}")
+        
+        if len(result["metadata"]["records"]) > 3:
+            console.print(f"  ... and {len(result['metadata']['records']) - 3} more records")
 
 def interactive_mode(bimconverse: BIMConverseRAG, output_format: str):
     """
@@ -286,8 +347,17 @@ def interactive_mode(bimconverse: BIMConverseRAG, output_format: str):
             if not query.strip():
                 continue
             
+            # Allow for forcing multi-hop with !multihop prefix
+            use_multihop = None
+            if query.lower().startswith("!multihop "):
+                use_multihop = True
+                query = query[10:].strip()
+            elif query.lower().startswith("!standard "):
+                use_multihop = False
+                query = query[10:].strip()
+            
             # Execute the query
-            result = bimconverse.query(query)
+            result = bimconverse.query(query, use_multihop=use_multihop)
             
             # Format and print the result
             format_result(result, output_format)
@@ -318,8 +388,16 @@ def create_config_wizard():
         openai_api_key = Prompt.ask("OpenAI API key", password=True)
     
     project_name = Prompt.ask("Project name", default="IFC Building Project")
+    
+    # Conversation settings
     context_enabled = Confirm.ask("Enable conversation context", default=False)
     max_history_length = int(Prompt.ask("Max conversation history length", default="10"))
+    
+    # Multi-hop retrieval settings
+    console.print("\n[bold]Multi-hop Reasoning Settings[/bold]")
+    console.print("Multi-hop reasoning allows BIMConverse to handle complex queries that require multiple steps.")
+    multihop_enabled = Confirm.ask("Enable multi-hop reasoning by default", default=False)
+    multihop_detection = Confirm.ask("Auto-detect multi-hop queries", default=True)
     
     # Create the config file
     try:
@@ -331,7 +409,9 @@ def create_config_wizard():
             openai_api_key=openai_api_key,
             project_name=project_name,
             context_enabled=context_enabled,
-            max_history_length=max_history_length
+            max_history_length=max_history_length,
+            multihop_enabled=multihop_enabled,
+            multihop_detection=multihop_detection
         )
         
         console.print(f"[green]Configuration file created: {config_file}[/green]")
@@ -379,10 +459,16 @@ def main(args: Optional[List[str]] = None):
         # Set conversation context if enabled
         if parsed_args.context:
             bimconverse.set_context_enabled(True)
+            
+        # Set multi-hop retrieval if enabled
+        if parsed_args.multihop:
+            bimconverse.set_multihop_enabled(True)
         
         # Run a single query if provided
         if parsed_args.query:
-            result = bimconverse.query(parsed_args.query)
+            # Determine if we should force multi-hop for the query
+            use_multihop = True if parsed_args.force_multihop else None
+            result = bimconverse.query(parsed_args.query, use_multihop=use_multihop)
             format_result(result, parsed_args.output)
         else:
             # Run interactive mode

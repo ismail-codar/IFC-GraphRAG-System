@@ -181,6 +181,99 @@ Based on the building model schema, here are common types of questions users mig
 For each building element in the database, I can generate relevant hypothetical questions that would help with retrieval.
 """
 
+# Chain-of-thought prompting for complex building queries
+CHAIN_OF_THOUGHT_PROMPT = """
+To answer complex building queries, I'll use a chain-of-thought approach with these steps:
+
+1. ANALYZE the query to identify:
+   - ENTITIES: What building elements are mentioned (spaces, walls, windows, etc.)?
+   - RELATIONSHIPS: What connections between elements must be traversed?
+   - CONSTRAINTS: What conditions or filters should be applied?
+   - DESIRED OUTPUT: What information is being requested?
+
+2. REASON through a step-by-step process:
+   - START with the most specific entity mentioned
+   - NAVIGATE through relevant relationships
+   - APPLY filters at each step
+   - COLLECT the required information
+
+3. FORMULATE a Cypher query that follows this reasoning process
+
+For example, with the query "Find all rooms adjacent to the kitchen that have more than 2 windows":
+
+Step 1: IDENTIFY the kitchen space
+```
+MATCH (kitchen:Space)
+WHERE kitchen.Name CONTAINS 'Kitchen'
+```
+
+Step 2: FIND spaces adjacent to the kitchen
+```
+MATCH (kitchen:Space)-[:ADJACENT_TO]-(adjacent_space:Space)
+WHERE kitchen.Name CONTAINS 'Kitchen'
+```
+
+Step 3: FIND windows in these adjacent spaces
+```
+MATCH (kitchen:Space)-[:ADJACENT_TO]-(adjacent_space:Space)<-[:BOUNDED_BY]-(window:Window)
+WHERE kitchen.Name CONTAINS 'Kitchen'
+```
+
+Step 4: COUNT windows per adjacent space and FILTER those with more than 2
+```
+MATCH (kitchen:Space)-[:ADJACENT_TO]-(adjacent_space:Space)
+WHERE kitchen.Name CONTAINS 'Kitchen'
+WITH adjacent_space
+MATCH (adjacent_space)<-[:BOUNDED_BY]-(window:Window)
+WITH adjacent_space, COUNT(window) as window_count
+WHERE window_count > 2
+RETURN adjacent_space.Name, window_count
+```
+
+Query to analyze: {query}
+
+Let me walk through my reasoning process:
+"""
+
+# Enhanced query decomposition prompt to break down multi-part questions
+QUERY_DECOMPOSITION_PROMPT = """
+Complex building queries often require multiple steps to answer properly. I need to decompose this query into simpler sub-queries.
+
+Original query: "{query}"
+
+I'll break this down into the following steps:
+
+1. 
+2. 
+3. 
+
+For each step, I need to:
+- Identify what information is needed
+- Determine which graph patterns will find this information
+- Understand how this information contributes to the final answer
+- Consider how to pass context between steps
+
+Let me decompose this query step by step:
+"""
+
+# Context accumulation prompt for reasoning across multiple query steps
+CONTEXT_ACCUMULATION_PROMPT = """
+As I work through this multi-hop query, I need to keep track of important context from previous steps.
+
+Original query: "{query}"
+
+Previous context:
+{previous_context}
+
+For the next step, I need to:
+1. RECALL key findings from previous steps
+2. INTEGRATE this context into my current reasoning
+3. IDENTIFY what additional information is still needed
+4. FORMULATE a query that builds on what I've already learned
+
+Let me incorporate the previous context as I reason through the next step:
+"""
+
 # Dict of prompt templates for different reasoning strategies
 PROMPT_TEMPLATES = {
     "basic": SCHEMA_PROMPT,
@@ -188,7 +281,10 @@ PROMPT_TEMPLATES = {
     "step_back": STEP_BACK_PROMPT,
     "spatial": SPATIAL_REASONING_PROMPT,
     "parent_child": PARENT_CHILD_RETRIEVAL_PROMPT,
-    "hypothetical": HYPOTHETICAL_QUESTION_TEMPLATE
+    "hypothetical": HYPOTHETICAL_QUESTION_TEMPLATE,
+    "chain_of_thought": CHAIN_OF_THOUGHT_PROMPT,
+    "query_decomposition": QUERY_DECOMPOSITION_PROMPT,
+    "context_accumulation": CONTEXT_ACCUMULATION_PROMPT
 }
 
 def get_prompt_template(strategy: str = "basic") -> str:

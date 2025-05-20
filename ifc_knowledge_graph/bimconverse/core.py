@@ -18,6 +18,10 @@ from neo4j_graphrag.generation import GraphRAG
 from neo4j_graphrag.llm import OpenAILLM
 from neo4j_graphrag.retrievers import VectorRetriever, HybridRetriever, Text2CypherRetriever
 
+# Import custom retrievers
+import bimconverse.retrievers as retrievers
+from bimconverse.retrievers import MultihopRetriever
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -121,7 +125,9 @@ class BIMConverseRAG:
             "retrieval": {
                 "top_k": 5,
                 "similarity_threshold": 0.7,
-                "include_graph_context": True
+                "include_graph_context": True,
+                "multihop_enabled": False,  # Flag to enable multihop reasoning
+                "multihop_detection": True  # Automatically detect when to use multihop
             },
             "conversation": {
                 "enabled": False,
@@ -190,11 +196,16 @@ class BIMConverseRAG:
                 model_params={"temperature": self.config["openai"]["temperature"]}
             )
             
-            # Create the retriever based on configuration
-            # Use Text2CypherRetriever that can generate Cypher queries based on natural language
-            self.retriever = self._initialize_retriever()
-
-            # Create the RAG pipeline
+            # Create the retrievers
+            self.text2cypher_retriever = self._initialize_text2cypher_retriever()
+            
+            # Initialize MultihopRetriever if enabled
+            self.multihop_retriever = self._initialize_multihop_retriever()
+            
+            # Set the default retriever
+            self.retriever = self.text2cypher_retriever
+            
+            # Create the RAG pipeline with the default retriever
             self.rag = GraphRAG(
                 retriever=self.retriever,
                 llm=self.llm
@@ -205,7 +216,7 @@ class BIMConverseRAG:
             logger.error(f"Failed to initialize GraphRAG components: {e}")
             raise RuntimeError(f"Could not initialize GraphRAG components: {e}")
     
-    def _initialize_retriever(self):
+    def _initialize_text2cypher_retriever(self):
         """Initialize the Text2CypherRetriever."""
         # Define schema based on actual database labels found in schema.py
         building_schema = """
@@ -257,118 +268,174 @@ class BIMConverseRAG:
         (:Wall)-[:BOUNDED_BY]->(:Space)
         """
         
-        # Example queries to help the model understand common queries
-        examples = [
-            "USER INPUT: 'What spaces are in this building?' QUERY: MATCH (b:Building)-[:CONTAINS]->(:Storey)-[:CONTAINS]->(s:Space) RETURN s.Name as SpaceName",
-            "USER INPUT: 'List all the walls' QUERY: MATCH (w:Wall) RETURN w.Name as WallName, w.GlobalId as GlobalId",
-            "USER INPUT: 'Find walls with concrete material' QUERY: MATCH (w:Wall)-[:IS_MADE_OF]->(m:Material) WHERE m.Name CONTAINS 'Concrete' RETURN w.Name as WallName, m.Name as MaterialName",
-            "USER INPUT: 'What properties does the entrance door have?' QUERY: MATCH (d:Door)-[:HAS_PROPERTY_SET]->(ps:PropertySet)-[:HAS_PROPERTY]->(p:Property) WHERE d.Name CONTAINS 'Entrance' RETURN d.Name as DoorName, ps.Name as PropertySetName, p.Name as PropertyName, p.Value as PropertyValue",
-            "USER INPUT: 'How many floors are in the building?' QUERY: MATCH (b:Building)-[:CONTAINS]->(s:Storey) RETURN count(s) as FloorCount",
-            "USER INPUT: 'What spaces are adjacent to the kitchen?' QUERY: MATCH (s1:Space)-[:ADJACENT_TO]->(s2:Space) WHERE s1.Name CONTAINS 'Kitchen' RETURN s2.Name as AdjacentSpaceName"
-        ]
-        
-        logger.info("Initializing Text2CypherRetriever")
-        return Text2CypherRetriever(
-            driver=self.driver,
-            llm=self.llm,
-            neo4j_schema=building_schema,
-            examples=examples
-        )
+        try:
+            # Create the Text2Cypher retriever
+            retriever = Text2CypherRetriever(
+                driver=self.driver,
+                llm=self.llm,
+                neo4j_schema=building_schema
+            )
+            logger.info("Successfully initialized Text2Cypher retriever")
+            return retriever
+        except Exception as e:
+            logger.error(f"Failed to initialize Text2Cypher retriever: {e}")
+            raise RuntimeError(f"Could not initialize Text2Cypher retriever: {e}")
     
-    def query(self, query_text: str) -> Dict[str, Any]:
+    def _initialize_multihop_retriever(self):
+        """Initialize the MultihopRetriever for complex multi-step queries."""
+        try:
+            # Create the MultihopRetriever
+            retriever = MultihopRetriever(
+                driver=self.driver,
+                llm=self.llm
+            )
+            logger.info("Successfully initialized MultihopRetriever")
+            return retriever
+        except Exception as e:
+            logger.error(f"Failed to initialize MultihopRetriever: {e}")
+            logger.warning("Falling back to standard Text2Cypher retriever")
+            return None
+    
+    def _detect_multihop_query(self, query: str) -> bool:
         """
-        Execute a natural language query against the IFC knowledge graph.
+        Detect if a query requires multi-hop reasoning.
         
         Args:
-            query_text: The natural language query
+            query: The user's query text
             
         Returns:
-            Dict containing answer, sources, and query details
+            True if the query likely requires multi-hop reasoning, False otherwise
+        """
+        # Keywords that suggest multi-hop relationships
+        multihop_indicators = [
+            "adjacent to", "connected to", "nearest", "between", "path", 
+            "route", "sequence", "connected", "linked", "relationship between",
+            "and then", "followed by", "through", "via", "across",
+            "that have", "that contain", "with properties", "that are also",
+            "relation", "connection", "journey", "traverse"
+        ]
+        
+        # Check for common multi-step query patterns
+        query_lower = query.lower()
+        for indicator in multihop_indicators:
+            if indicator in query_lower:
+                logger.info(f"Detected potential multi-hop query: '{indicator}' in '{query}'")
+                return True
+        
+        # Check for multiple entity types in the same query
+        entity_types = [
+            "room", "space", "wall", "door", "window", "floor", "material", 
+            "storey", "building", "beam", "column", "slab", "furniture"
+        ]
+        
+        entity_count = sum(1 for entity in entity_types if entity in query_lower)
+        if entity_count >= 2:
+            logger.info(f"Detected potential multi-hop query: {entity_count} entity types in '{query}'")
+            return True
+            
+        return False
+    
+    def query(self, query_text: str, use_multihop: Optional[bool] = None) -> Dict[str, Any]:
+        """
+        Execute a query against the IFC knowledge graph.
+        
+        Args:
+            query_text: The user's natural language query
+            use_multihop: Force use of multihop retriever (True) or standard retriever (False)
+                        If None, auto-detect based on query complexity
+            
+        Returns:
+            Dictionary containing the query results and metadata
         """
         logger.info(f"Processing query: {query_text}")
         
-        # Apply conversation context if enabled
+        # Determine whether to use multi-hop retrieval
+        should_use_multihop = use_multihop
+        
+        # If not explicitly specified, auto-detect if query needs multi-hop reasoning
+        if use_multihop is None and self.config["retrieval"].get("multihop_detection", True):
+            should_use_multihop = self._detect_multihop_query(query_text)
+        
+        # Override with multihop_enabled setting if use_multihop is None
+        if use_multihop is None and not self.config["retrieval"].get("multihop_enabled", False):
+            should_use_multihop = False
+            
+        # If multihop retriever is not available, fall back to standard retriever
+        if should_use_multihop and self.multihop_retriever is None:
+            logger.warning("Multihop retriever is not available, falling back to standard retriever")
+            should_use_multihop = False
+            
+        # Select the appropriate retriever
+        if should_use_multihop:
+            logger.info("Using multi-hop retrieval strategy")
+            retriever = self.multihop_retriever
+        else:
+            logger.info("Using standard text-to-cypher retrieval strategy")
+            retriever = self.text2cypher_retriever
+            
+        # Update the RAG pipeline with the selected retriever
+        self.rag.retriever = retriever
+        
+        # Add conversation history if enabled
+        context = ""
+        if self.context_enabled and self.conversation_history:
+            context = "Previous conversation:\n"
+            for i, (q, a) in enumerate(self.conversation_history[-self.max_history_length:]):
+                context += f"Q{i+1}: {q}\nA{i+1}: {a}\n"
+            context += "\nCurrent question: "
+            
+            # Adjust query format if context is added
+            query_with_context = f"{context}{query_text}"
+        else:
+            query_with_context = query_text
+        
         try:
-            # In version 1.7.0 of neo4j-graphrag, the GraphRAG search method doesn't support chat_history
-            # If context is enabled, we need to include context in the query text itself
-            if self.context_enabled and self.conversation_history:
-                # Format conversation history into prompt context
-                context_parts = ["Previous conversation:"]
-                for q, a in self.conversation_history[-self.max_history_length:]:
-                    if isinstance(a, dict) and "answer" in a:
-                        answer_text = a["answer"]
-                    else:
-                        answer_text = str(a)
-                    context_parts.append(f"Question: {q}")
-                    context_parts.append(f"Answer: {answer_text}")
-                
-                context_str = "\n".join(context_parts)
-                # Combine context with current query
-                full_query = f"{context_str}\n\nCurrent question: {query_text}"
-                
-                # Execute search with combined query
-                response = self.rag.search(full_query)
-            else:
-                # Execute search without context
-                response = self.rag.search(query_text)
+            # Execute the query using the RAG pipeline's search method 
+            # (previously named "query" - this is the API change we're fixing)
+            response = self.rag.search(query_with_context)
             
-            # Extract answer from response
-            answer = ""
-            if hasattr(response, "answer"):
-                answer = response.answer
-            else:
-                answer = str(response)
-            
-            # Prepare result structure
+            # Extract relevant information
             result = {
-                "answer": answer,
                 "query": query_text,
-                "cypher_query": "",
-                "sources": [],
+                "answer": response.answer if hasattr(response, "answer") else str(response),
+                "retrieval_strategy": "multihop" if should_use_multihop else "standard",
+                "metadata": {}
             }
             
-            # Extract retriever result and metadata if available
-            # In neo4j-graphrag 1.7.0, retriever_result might be None
-            if hasattr(response, "retriever_result") and response.retriever_result is not None:
-                retriever_result = response.retriever_result
+            # Add different metadata based on retriever type
+            if should_use_multihop and hasattr(response, "intermediate_results"):
+                result["metadata"]["intermediate_results"] = response.intermediate_results
+                result["metadata"]["sub_queries"] = getattr(response, "sub_queries", [])
+            else:
+                # Add standard retriever metadata
+                if hasattr(response, "retriever_result") and response.retriever_result is not None:
+                    retriever_result = response.retriever_result
+                    
+                    # Extract cypher query from metadata if available
+                    if hasattr(retriever_result, "metadata") and retriever_result.metadata:
+                        metadata = retriever_result.metadata
+                        if isinstance(metadata, dict) and "cypher" in metadata:
+                            result["metadata"]["cypher_query"] = metadata["cypher"]
+                    
+                    # Extract sources from items if available
+                    if hasattr(retriever_result, "items"):
+                        result["metadata"]["records"] = [{
+                            "content": item.content if hasattr(item, "content") else "",
+                            "metadata": item.metadata if hasattr(item, "metadata") else {}
+                        } for item in retriever_result.items]
                 
-                # Extract cypher query from metadata if available
-                if hasattr(retriever_result, "metadata") and retriever_result.metadata:
-                    metadata = retriever_result.metadata
-                    if isinstance(metadata, dict) and "cypher" in metadata:
-                        result["cypher_query"] = metadata["cypher"]
-                
-                # Extract sources from items if available
-                if hasattr(retriever_result, "items"):
-                    sources = []
-                    for item in retriever_result.items:
-                        source = {"content": "", "metadata": {}}
-                        if hasattr(item, "content"):
-                            source["content"] = item.content
-                        if hasattr(item, "metadata"):
-                            source["metadata"] = item.metadata
-                        sources.append(source)
-                    result["sources"] = sources
-            
-            # Update conversation history if context is enabled
+            # Add conversation context if enabled
             if self.context_enabled:
-                self.conversation_history.append((query_text, result))
-                # Trim history if needed
-                if len(self.conversation_history) > self.max_history_length:
-                    self.conversation_history = self.conversation_history[-self.max_history_length:]
-            
+                self.add_to_conversation_history(query_text, result["answer"])
+                
             return result
-        
         except Exception as e:
             logger.error(f"Error processing query: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
             return {
-                "answer": f"Error: {str(e)}",
                 "query": query_text,
-                "cypher_query": "",
-                "sources": [],
-                "error": True
+                "answer": f"Sorry, I encountered an error while processing your query: {str(e)}",
+                "error": str(e),
+                "retrieval_strategy": "multihop" if should_use_multihop else "standard"
             }
     
     def add_to_conversation_history(self, question: str, answer: str) -> None:
@@ -377,15 +444,20 @@ class BIMConverseRAG:
         
         Args:
             question: The user's question
-            answer: The system's answer
+            answer: The system's answer (string or dict with 'answer' key)
         """
-        self.conversation_history.append((question, answer))
+        # Handle both string answers and dict answers with 'answer' key
+        answer_text = answer
+        if isinstance(answer, dict) and "answer" in answer:
+            answer_text = answer["answer"]
+            
+        self.conversation_history.append((question, answer_text))
         
-        # Trim history if it exceeds the maximum length
+        # Trim history if needed
         if len(self.conversation_history) > self.max_history_length:
             self.conversation_history = self.conversation_history[-self.max_history_length:]
         
-        logger.debug(f"Added to conversation history (total: {len(self.conversation_history)})")
+        logger.debug(f"Added to conversation history, new length: {len(self.conversation_history)}")
     
     def get_conversation_history(self) -> List[Tuple[str, str]]:
         """Get the current conversation history."""
@@ -401,10 +473,37 @@ class BIMConverseRAG:
         Enable or disable conversation context.
         
         Args:
-            enabled: Whether conversation context should be enabled
+            enabled: Whether to enable conversation context
         """
         self.context_enabled = enabled
+        if "conversation" not in self.config:
+            self.config["conversation"] = {}
+        self.config["conversation"]["enabled"] = enabled
         logger.info(f"Conversation context {'enabled' if enabled else 'disabled'}")
+        
+    def set_multihop_enabled(self, enabled: bool) -> None:
+        """
+        Enable or disable multihop retrieval globally.
+        
+        Args:
+            enabled: Whether to enable multihop retrieval
+        """
+        if "retrieval" not in self.config:
+            self.config["retrieval"] = {}
+        self.config["retrieval"]["multihop_enabled"] = enabled
+        logger.info(f"Multihop retrieval globally {'enabled' if enabled else 'disabled'}")
+        
+    def set_multihop_detection(self, enabled: bool) -> None:
+        """
+        Enable or disable automatic detection of queries that need multihop retrieval.
+        
+        Args:
+            enabled: Whether to enable automatic detection
+        """
+        if "retrieval" not in self.config:
+            self.config["retrieval"] = {}
+        self.config["retrieval"]["multihop_detection"] = enabled
+        logger.info(f"Automatic multihop detection {'enabled' if enabled else 'disabled'}")
     
     def set_max_history_length(self, length: int) -> None:
         """
@@ -428,11 +527,18 @@ class BIMConverseRAG:
         logger.info(f"Maximum history length set to {length}")
     
     def get_conversation_settings(self) -> Dict[str, Any]:
-        """Get the current conversation context settings."""
+        """
+        Get current conversation settings.
+        
+        Returns:
+            Dictionary of conversation settings
+        """
         return {
-            "enabled": self.context_enabled,
+            "context_enabled": self.context_enabled,
             "max_history_length": self.max_history_length,
-            "current_history_length": len(self.conversation_history)
+            "history_entries": len(self.conversation_history),
+            "multihop_enabled": self.config["retrieval"].get("multihop_enabled", False),
+            "multihop_detection": self.config["retrieval"].get("multihop_detection", True)
         }
     
     def get_stats(self) -> Dict[str, Any]:
@@ -500,7 +606,9 @@ def create_config_file(
     openai_api_key: str = "",
     project_name: str = "IFC Building Project",
     context_enabled: bool = False,
-    max_history_length: int = 10
+    max_history_length: int = 10,
+    multihop_enabled: bool = False,
+    multihop_detection: bool = True
 ) -> str:
     """
     Create a configuration file for BIMConverseRAG.
@@ -514,6 +622,8 @@ def create_config_file(
         project_name: Name of the project
         context_enabled: Whether conversation context is enabled by default
         max_history_length: Maximum conversation history length
+        multihop_enabled: Whether multi-hop retrieval is enabled by default
+        multihop_detection: Whether to auto-detect multi-hop queries
         
     Returns:
         Path to the created configuration file
@@ -535,7 +645,9 @@ def create_config_file(
         "retrieval": {
             "top_k": 5,
             "similarity_threshold": 0.7,
-            "include_graph_context": True
+            "include_graph_context": True,
+            "multihop_enabled": multihop_enabled,
+            "multihop_detection": multihop_detection
         },
         "conversation": {
             "enabled": context_enabled,

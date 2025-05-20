@@ -161,11 +161,11 @@ This phase focuses on enhancing the BIMConverse system with advanced GraphRAG te
 
 ### Part 1: Enhanced Retrieval Strategies
 
-- [ ] **Multi-Hop Reasoning**
-  - [ ] Implement chain-of-thought prompting techniques
-  - [ ] Create step-back prompting strategy for complex building queries
-  - [ ] Add query decomposition for multi-part questions
-  - [ ] Support for context accumulation during reasoning
+- [x] **Multi-Hop Reasoning**
+  - [x] Implement chain-of-thought prompting techniques
+  - [x] Create step-back prompting strategy for complex building queries
+  - [x] Add query decomposition for multi-part questions
+  - [x] Support for context accumulation during reasoning
 
 - [ ] **Advanced Retrieval Patterns**
   - [ ] Implement parent-child document retriever for IFC hierarchies
@@ -184,7 +184,7 @@ This phase focuses on enhancing the BIMConverse system with advanced GraphRAG te
 - [ ] **Spatial Reasoning**
   - [ ] Add specialized spatial relationship traversal patterns
   - [ ] Implement spatial query templates (adjacency, containment, connectivity)
-  - [ ] Create visualization capabilities for spatial query results
+  - [x] Create visualization capabilities for spatial query results
   - [ ] Support for area, volume, and distance calculations
 
 ### Part 3: Performance and Usability Improvements
