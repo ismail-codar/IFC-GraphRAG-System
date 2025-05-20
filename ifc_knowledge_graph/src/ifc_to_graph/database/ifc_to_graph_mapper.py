@@ -362,26 +362,34 @@ class IfcToGraphMapper:
             logger.warning("Material name is empty or None")
             return None
         
-        # Format properties for Neo4j
+        # Format properties for Neo4j - using individual properties instead of a nested map
         properties = {}
         for key, value in material_data.items():
-            prop_name = PROPERTY_MAPPING.get(key, key)
-            formatted_value = format_property_value(value)
-            if formatted_value is not None:
-                properties[prop_name] = formatted_value
+            if key != "Name":  # Skip Name as it's already the primary key
+                prop_name = PROPERTY_MAPPING.get(key, key)
+                formatted_value = format_property_value(value)
+                if formatted_value is not None:
+                    properties[prop_name] = formatted_value
         
-        # Generate Cypher query with direct parameters instead of nested props
-        query = """
-        MERGE (m:Material {name: $name})
-        SET m += $properties
+        # Generate Cypher query with direct parameters instead of nested properties map
+        property_clauses = []
+        for prop_name in properties:
+            property_clauses.append(f"m.{prop_name} = ${prop_name}")
+        
+        set_clause = ""
+        if property_clauses:
+            set_clause = "SET " + ", ".join(property_clauses)
+        
+        query = f"""
+        MERGE (m:Material {{name: $name}})
+        {set_clause}
         RETURN m.name as Name
         """
         
         # Generate parameters
-        params = {
-            "name": material_name,
-            "properties": properties
-        }
+        params = {"name": material_name}
+        # Add all properties as top-level parameters
+        params.update(properties)
         
         try:
             # Execute query
@@ -408,23 +416,31 @@ class IfcToGraphMapper:
             logger.warning("Missing element ID or material name")
             return False
         
-        # Get the optimized query creator from Neo4j connector
         try:
-            # First ensure material exists
+            # First ensure material exists and create it if not
             material_query = """
             MERGE (m:Material {name: $material_name})
             RETURN m.name as name
             """
             self.connector.run_query(material_query, {"material_name": material_name})
             
-            # Then create relationship using the optimized method
-            result = self.connector.create_relationship(
-                source_id=element_id,
-                target_id=material_name,
-                relationship_type="IS_MADE_OF",
-                properties=None
-            )
-            return result is not None
+            # Create the IS_MADE_OF relationship - use a custom query since we're matching the material by name
+            # instead of GlobalId like most other relationships
+            relationship_query = """
+            MATCH (e {GlobalId: $element_id})
+            MATCH (m:Material {name: $material_name})
+            MERGE (e)-[r:IS_MADE_OF]->(m)
+            RETURN type(r) as type
+            """
+            
+            params = {
+                "element_id": element_id,
+                "material_name": material_name
+            }
+            
+            result = self.connector.run_query(relationship_query, params)
+            return result is not None and len(result) > 0
+            
         except Exception as e:
             logger.error(f"Error linking element to material: {str(e)}")
             return False
