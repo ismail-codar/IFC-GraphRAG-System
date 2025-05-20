@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 """
-BIMConverse CLI Module
+BIMConverse CLI
 
-Command-line interface for interacting with IFC knowledge graphs using natural language queries.
+This module implements the command-line interface for BIMConverse,
+allowing natural language querying of IFC knowledge graphs.
 """
 
 import os
@@ -11,28 +12,22 @@ import json
 import argparse
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, List
-import textwrap
-import datetime
+from typing import Dict, List, Optional, Any
 
-# Platform-specific readline handling
 try:
-    import readline
+    import readline  # For command history on Unix
 except ImportError:
     try:
-        import pyreadline3 as readline
+        import pyreadline3 as readline  # For Windows
     except ImportError:
-        # If neither is available, we'll continue without readline support
-        pass
+        pass  # Readline is not available
 
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.markdown import Markdown
-from rich.syntax import Syntax
-from rich import box
 from rich.columns import Columns
 from rich.text import Text
+from rich.prompt import Prompt, Confirm
 
 from core import BIMConverseRAG, create_config_file
 
@@ -41,10 +36,22 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("BIMConverseCLI")
+logger = logging.getLogger("BIMConverse")
 
-# Create Rich console for pretty printing
+# Create a Rich console for pretty output
 console = Console()
+
+# Special commands in interactive mode
+SPECIAL_COMMANDS = {
+    "/help": "Show this help message",
+    "/quit": "Exit the application",
+    "/exit": "Exit the application",
+    "/context on": "Enable conversation context",
+    "/context off": "Disable conversation context",
+    "/context clear": "Clear conversation context",
+    "/context status": "Show conversation context status",
+    "/stats": "Show database statistics",
+}
 
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""
@@ -56,6 +63,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config", "-c",
         type=str,
+        default="config.json",
         help="Path to configuration file"
     )
     
@@ -66,41 +74,41 @@ def create_parser() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        "--uri",
+        type=str,
+        help="Neo4j connection URI (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--username",
+        type=str,
+        help="Neo4j username (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--password",
+        type=str,
+        help="Neo4j password (overrides config)"
+    )
+    
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        help="OpenAI API key (overrides config)"
+    )
+    
+    parser.add_argument(
         "--query", "-q",
         type=str,
-        help="Execute a single query and exit"
-    )
-    
-    parser.add_argument(
-        "--stats",
-        action="store_true",
-        help="Display database statistics and exit"
-    )
-    
-    parser.add_argument(
-        "--no-sources",
-        action="store_true",
-        help="Don't include source information in query results"
+        help="Run a single query without entering interactive mode"
     )
     
     parser.add_argument(
         "--output", "-o",
         type=str,
         choices=["text", "json", "markdown"],
-        default="text",
-        help="Output format for query results"
-    )
-    
-    parser.add_argument(
-        "--save",
-        type=str,
-        help="Save query results to file"
-    )
-    
-    parser.add_argument(
-        "--verbose", "-v",
-        action="store_true",
-        help="Enable verbose output"
+        default="markdown",
+        help="Output format"
     )
     
     parser.add_argument(
@@ -111,411 +119,282 @@ def create_parser() -> argparse.ArgumentParser:
     
     return parser
 
-def create_configuration_wizard() -> Dict[str, Any]:
-    """Interactive wizard for creating a configuration file."""
+def print_header():
+    """Print the BIMConverse header."""
     console.print(Panel.fit(
-        "BIMConverse Configuration Wizard",
-        subtitle="Create a new configuration for your building model",
-        padding=(1, 2),
-        title_align="center"
+        "[bold blue]BIMConverse[/bold blue] - [italic]Natural language querying for IFC knowledge graphs[/italic]",
+        border_style="blue"
     ))
-    
-    console.print("\n[bold]Project Information[/bold]")
-    project_name = console.input("[cyan]Project name:[/cyan] ")
-    
-    console.print("\n[bold]Neo4j Connection[/bold]")
-    console.print("Enter your Neo4j database connection details:")
-    neo4j_uri = console.input("[cyan]Neo4j URI[/cyan] [dim](default: neo4j://localhost:7687)[/dim]: ") or "neo4j://localhost:7687"
-    neo4j_username = console.input("[cyan]Username[/cyan] [dim](default: neo4j)[/dim]: ") or "neo4j"
-    neo4j_password = console.input("[cyan]Password[/cyan] [dim](default: test1234)[/dim]: ", password=True) or "test1234"
-    
-    console.print("\n[bold]OpenAI API[/bold]")
-    console.print("Enter your OpenAI API key for embeddings and LLM:")
-    openai_api_key = console.input("[cyan]OpenAI API Key[/cyan]: ", password=True) or ""
-    
-    console.print("\n[bold]Conversation Context[/bold]")
-    context_enabled = console.input("[cyan]Enable conversation context?[/cyan] [dim](y/n, default: n)[/dim]: ").lower() == 'y'
-    max_history = console.input("[cyan]Maximum conversation history length[/cyan] [dim](default: 10)[/dim]: ") or "10"
-    
-    console.print("\n[bold]Output Configuration[/bold]")
-    output_path = console.input("[cyan]Save configuration to[/cyan] [dim](default: config.json)[/dim]: ") or "config.json"
-    
-    # Create and return the configuration
-    return {
-        "output_path": output_path,
-        "neo4j_uri": neo4j_uri,
-        "neo4j_username": neo4j_username,
-        "neo4j_password": neo4j_password,
-        "openai_api_key": openai_api_key,
-        "project_name": project_name,
-        "context_enabled": context_enabled,
-        "max_history": int(max_history)
-    }
+    console.print()
 
-def display_statistics(stats: Dict[str, Any]):
-    """Display database statistics in a formatted table."""
-    console.print(Panel(
-        "[bold]Knowledge Graph Statistics[/bold]",
-        subtitle=f"Total: {stats['nodes']} nodes, {stats['relationships']} relationships",
-        padding=(1, 2)
-    ))
-    
-    # Node labels table
-    label_table = Table(title="Node Types", box=box.ROUNDED)
-    label_table.add_column("Label", style="cyan")
-    label_table.add_column("Count", justify="right", style="green")
-    
-    for label, count in stats.get('labels', {}).items():
-        # Clean up the label format (remove brackets and quotes)
-        clean_label = label.replace("[", "").replace("]", "").replace("'", "")
-        label_table.add_row(clean_label, str(count))
-    
-    console.print(label_table)
-    
-    # Relationship types table
-    rel_table = Table(title="Relationship Types", box=box.ROUNDED)
-    rel_table.add_column("Type", style="cyan")
-    rel_table.add_column("Count", justify="right", style="green")
-    
-    for rel_type, count in stats.get('relationship_types', {}).items():
-        rel_table.add_row(rel_type, str(count))
-    
-    console.print(rel_table)
-
-def display_conversation_settings(settings: Dict[str, Any]):
-    """Display conversation context settings."""
-    enabled = settings["enabled"]
-    status = "[green]Enabled[/green]" if enabled else "[yellow]Disabled[/yellow]"
-    
-    console.print(Panel(
-        f"Conversation Context: {status}\n"
-        f"Max History Length: {settings['max_history_length']}\n"
-        f"Current History: {settings['current_history_length']} exchanges",
-        title="Conversation Context Settings",
-        border_style="cyan",
-        padding=(1, 2)
-    ))
-
-def display_conversation_history(history):
-    """Display conversation history."""
-    if not history:
-        console.print("[yellow]No conversation history.[/yellow]")
-        return
-    
-    console.print(Panel(
-        "Conversation History",
-        subtitle=f"({len(history)} exchanges)",
-        border_style="cyan",
-        padding=(1, 0)
-    ))
-    
-    for i, (question, answer) in enumerate(history):
-        q_text = Text(f"Q: {question}", style="cyan")
-        a_text = Text(f"A: {answer}", style="green")
-        
-        console.print(f"\n[bold]Exchange {i+1}:[/bold]")
-        console.print(q_text)
-        console.print(a_text)
-        
-        if i < len(history) - 1:
-            console.print("---")
-
-def format_query_result(
-    result: Dict[str, Any],
-    output_format: str = "text",
-    include_sources: bool = True
-) -> str:
-    """Format the query result according to the specified output format."""
-    context_info = " (with conversation context)" if result.get("context_used", False) else ""
-    
-    if output_format == "json":
-        return json.dumps(result, indent=2)
-    
-    elif output_format == "markdown":
-        md_output = f"# Query{context_info}: {result['question']}\n\n"
-        md_output += f"## Answer\n\n{result['answer']}\n\n"
-        
-        if include_sources and "cypher" in result:
-            md_output += f"## Generated Cypher Query\n\n```cypher\n{result['cypher']}\n```\n\n"
-            
-        if include_sources and "sources" in result:
-            md_output += "## Sources\n\n"
-            for i, source in enumerate(result.get("sources", [])):
-                md_output += f"### Source {i+1}\n\n"
-                md_output += f"```\n{source}\n```\n\n"
-                
-        return md_output
-    
-    else:  # Text format
-        text_output = f"Q{context_info}: {result['question']}\n\n"
-        text_output += f"A: {result['answer']}\n"
-        
-        if include_sources and "cypher" in result:
-            text_output += f"\nGenerated Cypher Query:\n{result['cypher']}\n"
-            
-        if include_sources and "sources" in result:
-            text_output += "\nSources:\n"
-            for i, source in enumerate(result.get("sources", [])):
-                text_output += f"\n--- Source {i+1} ---\n{source}\n"
-                
-        return text_output
-
-def save_result_to_file(content: str, filename: Optional[str] = None, format: str = "text") -> str:
-    """Save query result to a file."""
-    if not filename:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        ext = {"text": "txt", "json": "json", "markdown": "md"}[format]
-        filename = f"bimconverse_query_{timestamp}.{ext}"
-    
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(content)
-    
-    return filename
-
-def print_welcome_message():
-    """Print welcome message with usage instructions."""
-    welcome_text = """
-    BIMConverse - Query your building model using natural language
-
-    Type your questions about the building model to get answers.
-    Special commands:
-      :help       - Display this help message
-      :stats      - Display database statistics
-      :exit       - Exit the program
-      :save FILE  - Save last query result to FILE
-      :clear      - Clear the screen
-      
-    Context management:
-      :context on       - Enable conversation context
-      :context off      - Disable conversation context
-      :context status   - Show context settings
-      :context history  - Show conversation history
-      :context clear    - Clear conversation history
-      :context length N - Set maximum history length to N
+def handle_special_command(command: str, bimconverse: BIMConverseRAG) -> bool:
     """
+    Handle a special command.
     
-    console.print(Panel(
-        welcome_text,
-        title="Welcome to BIMConverse",
-        subtitle="Press Ctrl+C to exit",
-        padding=(1, 2),
-        border_style="cyan"
-    ))
-
-def handle_context_command(bimconverse: BIMConverseRAG, command_parts: List[str]):
-    """Handle context-related commands."""
-    if len(command_parts) == 1:
-        # Show context status by default
-        settings = bimconverse.get_conversation_settings()
-        display_conversation_settings(settings)
-        return
+    Args:
+        command: The command to handle
+        bimconverse: The BIMConverseRAG instance
+        
+    Returns:
+        True if the user wants to exit, False otherwise
+    """
+    if command in ["/quit", "/exit"]:
+        console.print("[italic]Exiting BIMConverse...[/italic]")
+        return True
     
-    subcommand = command_parts[1].lower()
+    elif command == "/help":
+        console.print(Panel("[bold]Available commands:[/bold]", border_style="blue"))
+        for cmd, desc in SPECIAL_COMMANDS.items():
+            console.print(f"  [bold blue]{cmd}[/bold blue]: {desc}")
+        console.print()
     
-    if subcommand in ("on", "enable"):
+    elif command == "/context on":
         bimconverse.set_context_enabled(True)
-        console.print("[green]Conversation context enabled.[/green]")
+        console.print("[green]Conversation context enabled[/green]")
     
-    elif subcommand in ("off", "disable"):
+    elif command == "/context off":
         bimconverse.set_context_enabled(False)
-        console.print("[yellow]Conversation context disabled.[/yellow]")
+        console.print("[yellow]Conversation context disabled[/yellow]")
     
-    elif subcommand == "status":
-        settings = bimconverse.get_conversation_settings()
-        display_conversation_settings(settings)
-    
-    elif subcommand == "history":
-        history = bimconverse.get_conversation_history()
-        display_conversation_history(history)
-    
-    elif subcommand == "clear":
+    elif command == "/context clear":
         bimconverse.clear_conversation_history()
-        console.print("[green]Conversation history cleared.[/green]")
+        console.print("[yellow]Conversation context cleared[/yellow]")
     
-    elif subcommand == "length" and len(command_parts) > 2:
-        try:
-            length = int(command_parts[2])
-            bimconverse.set_max_history_length(length)
-            console.print(f"[green]Maximum history length set to {length}.[/green]")
-        except ValueError as e:
-            console.print(f"[red]Error:[/red] {e}")
+    elif command == "/context status":
+        settings = bimconverse.get_conversation_settings()
+        console.print(Panel(
+            f"[bold]Conversation Context:[/bold]\n"
+            f"Enabled: {'[green]Yes[/green]' if settings['enabled'] else '[red]No[/red]'}\n"
+            f"Max History Length: {settings['max_history_length']}\n"
+            f"Current History Length: {settings['current_history_length']}",
+            border_style="blue"
+        ))
+    
+    elif command == "/stats":
+        stats = bimconverse.get_stats()
+        
+        if "error" in stats:
+            console.print(f"[red]Error getting statistics: {stats['error']}[/red]")
+            return False
+        
+        console.print(Panel(
+            f"[bold]Database Statistics:[/bold]\n"
+            f"Nodes: {stats['nodes']}\n"
+            f"Relationships: {stats['relationships']}",
+            border_style="blue"
+        ))
+        
+        if 'labels' in stats and stats['labels']:
+            console.print("\n[bold]Node Labels:[/bold]")
+            for label, count in stats['labels'].items():
+                console.print(f"  {label}: {count}")
+        
+        if 'relationship_types' in stats and stats['relationship_types']:
+            console.print("\n[bold]Relationship Types:[/bold]")
+            for rel_type, count in stats['relationship_types'].items():
+                console.print(f"  {rel_type}: {count}")
     
     else:
-        console.print("[yellow]Unknown context command. Try :help for available commands.[/yellow]")
-
-def interactive_loop(bimconverse: BIMConverseRAG, include_sources: bool = True, output_format: str = "text"):
-    """Run an interactive query loop."""
-    print_welcome_message()
+        console.print(f"[red]Unknown command: {command}[/red]")
+        console.print("[italic]Type /help to see available commands[/italic]")
     
-    history = []
-    last_result = None
+    return False
+
+def format_result(result: Dict[str, Any], output_format: str) -> None:
+    """
+    Format and print the query result.
+    
+    Args:
+        result: The query result
+        output_format: The output format (text, json, markdown)
+    """
+    if output_format == "json":
+        # Output as JSON
+        console.print(json.dumps(result, indent=2))
+        return
+    
+    if "error" in result and result["error"]:
+        console.print(f"[red]Error: {result['answer']}[/red]")
+        return
+    
+    if output_format == "text":
+        # Simple text output
+        console.print(result["answer"])
+        if result.get("cypher_query"):
+            console.print("\nGenerated Cypher:")
+            console.print(result["cypher_query"])
+        return
+    
+    # Default: Markdown format with rich formatting
+    answer_md = Markdown(result["answer"])
+    
+    panels = []
+    
+    # Main answer panel
+    panels.append(Panel(
+        answer_md,
+        title="[bold blue]Answer[/bold blue]",
+        border_style="blue"
+    ))
+    
+    # If we have a Cypher query, add it as a panel
+    if result.get("cypher_query"):
+        panels.append(Panel(
+            result["cypher_query"],
+            title="[bold blue]Generated Cypher[/bold blue]",
+            border_style="dim"
+        ))
+    
+    # Print the panels
+    if len(panels) == 1:
+        console.print(panels[0])
+    else:
+        console.print(Columns(panels))
+    
+    # Print sources if available
+    if result.get("sources") and len(result["sources"]) > 0:
+        console.print("\n[bold]Sources:[/bold]")
+        for i, source in enumerate(result["sources"]):
+            source_content = source.get("content", "")
+            if source_content:
+                console.print(f"  {i+1}. {source_content[:100]}...")
+
+def interactive_mode(bimconverse: BIMConverseRAG, output_format: str):
+    """
+    Run the interactive mode.
+    
+    Args:
+        bimconverse: The BIMConverseRAG instance
+        output_format: The output format
+    """
+    print_header()
+    console.print("[italic]Type /help to see available commands[/italic]")
+    console.print("[italic]Type /quit to exit[/italic]")
+    console.print()
     
     while True:
         try:
-            # Get user input
-            user_query = console.input("\n[bold cyan]> [/bold cyan]")
+            # Get input from user
+            query = Prompt.ask("[bold blue]BIMConverse[/bold blue]")
             
-            # Check for special commands
-            if user_query.lower() in (':q', ':quit', ':exit'):
-                break
-                
-            elif user_query.lower() in (':help', ':h'):
-                print_welcome_message()
-                continue
-                
-            elif user_query.lower() in (':stats', ':stat', ':s'):
-                stats = bimconverse.get_stats()
-                display_statistics(stats)
-                continue
-                
-            elif user_query.lower() in (':clear', ':cls', ':c'):
-                console.clear()
-                continue
-                
-            elif user_query.lower().startswith(':context'):
-                parts = user_query.split()
-                handle_context_command(bimconverse, parts)
-                continue
-                
-            elif user_query.lower().startswith(':save'):
-                if not last_result:
-                    console.print("[yellow]No query result to save.[/yellow]")
-                    continue
-                    
-                parts = user_query.split(maxsplit=1)
-                filename = parts[1] if len(parts) > 1 else None
-                
-                saved_path = save_result_to_file(
-                    format_query_result(last_result, output_format, include_sources),
-                    filename,
-                    output_format
-                )
-                console.print(f"[green]Result saved to:[/green] {saved_path}")
-                continue
-                
-            elif not user_query.strip():
+            # Check if this is a special command
+            if query.startswith("/"):
+                if handle_special_command(query, bimconverse):
+                    break
                 continue
             
-            # Process the query
-            with console.status("[bold green]Processing query...[/bold green]"):
-                result = bimconverse.query(user_query, include_sources=include_sources)
-                last_result = result
-                history.append((user_query, result))
+            if not query.strip():
+                continue
             
-            # Format and display the result
-            if output_format == "markdown":
-                console.print(Markdown(format_query_result(result, output_format, include_sources)))
-            else:
-                console.print(format_query_result(result, output_format, include_sources))
-                
+            # Execute the query
+            result = bimconverse.query(query)
+            
+            # Format and print the result
+            format_result(result, output_format)
+            console.print()
+            
         except KeyboardInterrupt:
-            console.print("\n[yellow]Exiting...[/yellow]")
-            break
+            console.print("\n[italic]Interrupted by user. Type /quit to exit.[/italic]")
         except Exception as e:
-            console.print(f"[red]Error:[/red] {e}")
+            logger.error(f"Error in interactive mode: {str(e)}")
+            console.print(f"[red]Error: {str(e)}[/red]")
 
-def main():
-    """Main entry point for BIMConverse CLI."""
-    parser = create_parser()
-    args = parser.parse_args()
+def create_config_wizard():
+    """Run the configuration wizard to create a config file."""
+    print_header()
+    console.print("[bold]Configuration Wizard[/bold]")
+    console.print("This wizard will help you create a configuration file for BIMConverse.")
+    console.print()
     
-    # Set logging level based on verbose flag
-    if args.verbose:
-        logging.getLogger("BIMConverse").setLevel(logging.DEBUG)
-        logging.getLogger("BIMConverseCLI").setLevel(logging.DEBUG)
+    # Get configuration values
+    config_path = Prompt.ask("Config file path", default="config.json")
     
-    # Create configuration file if requested
-    if args.create_config:
-        config_data = create_configuration_wizard()
-        
-        # Create a new configuration file with conversation settings
-        config = {
-            "project_name": config_data["project_name"],
-            "neo4j": {
-                "uri": config_data["neo4j_uri"],
-                "username": config_data["neo4j_username"],
-                "password": config_data["neo4j_password"]
-            },
-            "openai": {
-                "api_key": config_data["openai_api_key"]
-            },
-            "conversation": {
-                "enabled": config_data["context_enabled"],
-                "max_history_length": config_data["max_history"]
-            }
-        }
-        
-        # Create the configuration file
-        try:
-            output_path = config_data["output_path"]
-            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-            with open(output_path, 'w') as f:
-                json.dump(config, f, indent=2)
-            console.print(f"[green]Configuration created at:[/green] {output_path}")
-            
-            if not args.config:
-                args.config = output_path
-                
-        except Exception as e:
-            console.print(f"[red]Error creating configuration file:[/red] {e}")
-            sys.exit(1)
+    neo4j_uri = Prompt.ask("Neo4j URI", default="neo4j://localhost:7687")
+    neo4j_username = Prompt.ask("Neo4j username", default="neo4j")
+    neo4j_password = Prompt.ask("Neo4j password", default="test1234", password=True)
     
-    # Initialize BIMConverseRAG
+    openai_api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai_api_key:
+        openai_api_key = Prompt.ask("OpenAI API key", password=True)
+    
+    project_name = Prompt.ask("Project name", default="IFC Building Project")
+    context_enabled = Confirm.ask("Enable conversation context", default=False)
+    max_history_length = int(Prompt.ask("Max conversation history length", default="10"))
+    
+    # Create the config file
     try:
-        bimconverse = BIMConverseRAG(config_path=args.config)
+        config_file = create_config_file(
+            output_path=config_path,
+            neo4j_uri=neo4j_uri,
+            neo4j_username=neo4j_username,
+            neo4j_password=neo4j_password,
+            openai_api_key=openai_api_key,
+            project_name=project_name,
+            context_enabled=context_enabled,
+            max_history_length=max_history_length
+        )
         
-        # Apply command-line context setting if provided
-        if args.context:
-            bimconverse.set_context_enabled(True)
-            logger.info("Conversation context enabled from command line")
-            
+        console.print(f"[green]Configuration file created: {config_file}[/green]")
+        
     except Exception as e:
-        console.print(f"[red]Error initializing BIMConverse:[/red] {e}")
+        logger.error(f"Error creating configuration file: {str(e)}")
+        console.print(f"[red]Error creating configuration file: {str(e)}[/red]")
         sys.exit(1)
+
+def main(args: Optional[List[str]] = None):
+    """
+    Main entry point for the CLI.
     
-    # Display statistics if requested
-    if args.stats:
-        stats = bimconverse.get_stats()
-        display_statistics(stats)
-        bimconverse.close()
-        sys.exit(0)
+    Args:
+        args: Command line arguments (for testing)
+    """
+    parser = create_parser()
+    parsed_args = parser.parse_args(args)
     
-    # Execute a single query if provided
-    if args.query:
-        with console.status("[bold green]Processing query...[/bold green]"):
-            result = bimconverse.query(
-                args.query, 
-                include_sources=not args.no_sources,
-                use_context=args.context
-            )
-        
-        formatted_result = format_query_result(
-            result, 
-            output_format=args.output,
-            include_sources=not args.no_sources
-        )
-        
-        if args.save:
-            saved_path = save_result_to_file(formatted_result, args.save, args.output)
-            console.print(f"[green]Result saved to:[/green] {saved_path}")
-        
-        if args.output == "markdown":
-            console.print(Markdown(formatted_result))
-        else:
-            console.print(formatted_result)
-            
-        bimconverse.close()
-        sys.exit(0)
+    # Create a new configuration file if requested
+    if parsed_args.create_config:
+        create_config_wizard()
+        return
     
-    # Start interactive loop
+    # Parse config file path
+    config_path = parsed_args.config
+    if config_path and not os.path.isfile(config_path):
+        logger.warning(f"Configuration file not found: {config_path}")
+        if not parsed_args.uri or not parsed_args.username or not parsed_args.password:
+            logger.error("Neo4j connection details must be provided either in a config file or as arguments")
+            parser.print_help()
+            sys.exit(1)
+        config_path = None
+    
     try:
-        interactive_loop(
-            bimconverse,
-            include_sources=not args.no_sources,
-            output_format=args.output
+        # Initialize BIMConverseRAG
+        bimconverse = BIMConverseRAG(
+            config_path=config_path,
+            neo4j_uri=parsed_args.uri,
+            neo4j_username=parsed_args.username,
+            neo4j_password=parsed_args.password,
+            openai_api_key=parsed_args.api_key
         )
-    finally:
+        
+        # Set conversation context if enabled
+        if parsed_args.context:
+            bimconverse.set_context_enabled(True)
+        
+        # Run a single query if provided
+        if parsed_args.query:
+            result = bimconverse.query(parsed_args.query)
+            format_result(result, parsed_args.output)
+        else:
+            # Run interactive mode
+            interactive_mode(bimconverse, parsed_args.output)
+        
+        # Close connection
         bimconverse.close()
+        
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        console.print(f"[red]Error: {str(e)}[/red]")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main() 

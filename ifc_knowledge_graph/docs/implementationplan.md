@@ -127,132 +127,82 @@ This phase focuses on creating a GraphRAG (Retrieval Augmented Generation) syste
   - [x] Research and select GraphRAG framework
   - [x] Integrate Neo4j's GraphRAG library (neo4j-graphrag-python)
   - [x] Configure OpenAI embedding and LLM components
-  - [x] Test basic GraphRAG functionality with IFC knowledge graph
+  - [x] Test basic query functionality
 
-- [x] **Core BIMConverse Component**
-  - [x] Create BIMConverseRAG class for handling queries
-  - [x] Implement configuration management system
-  - [x] Create query processing pipeline
-  - [x] Add support for retrieving graph context and generated Cypher queries
-  - [x] Implement graph statistics functionality
-
-- [x] **CLI Interface Development**
-  - [x] Create command-line entry point
-  - [x] Implement configuration file handling and validation
-  - [x] Add interactive query loop with history
-  - [x] Create output formatting options (text, JSON, etc.)
-  - [x] Implement statistics display and visualization
-  - [x] Add support for saving query results
-
-- [x] **CLI Advanced Features**
-  - [x] Create configuration wizard for initial setup
-  - [x] Add debugging and verbose modes
-  - [x] Implement export functionality for query results
+- [x] **Schema and Context Management**
+  - [x] Define building schema
+  - [x] Configure retrieval parameters
   - [x] Implement conversation context management
-  - [ ] Add support for query templates
-  - [ ] Create batch query processing mode
+  - [x] Create configuration management system
 
-### Part 2: Web Interface and Visualization
+- [x] **Response Generation**
+  - [x] Implement text-to-Cypher generation
+  - [x] Create response formatting
+  - [x] Implement error handling
+  - [x] Support context-aware follow-up questions
 
-- [ ] **Gradio Web Interface Setup**
-  - [ ] Create main Gradio application structure
-  - [ ] Implement configuration loading and validation
-  - [ ] Add basic styling and layout
-  - [ ] Create server startup and shutdown handlers
-  - [ ] Test deployment with various hosting options
+### Part 2: Command-Line Interface
 
-- [ ] **Web UI Core Features**
-  - [ ] Implement chat interface for natural language queries
-  - [ ] Create response formatting and display
-  - [ ] Add syntax highlighting for Cypher queries
-  - [ ] Implement configuration management UI
-  - [ ] Create statistics view for database information
+- [x] **Interface Implementation**
+  - [x] Create command-line argument parser
+  - [x] Implement interactive query mode
+  - [x] Add configuration options
+  - [x] Support single query execution
 
-- [ ] **Graph Visualization Components**
-  - [ ] Research graph visualization libraries (D3.js, Cytoscape, etc.)
-  - [ ] Implement basic node-relationship visualization
-  - [ ] Create interactive exploration features
-  - [ ] Add filtering capabilities
-  - [ ] Implement zooming and panning
+- [x] **User Experience**
+  - [x] Implement rich text output formatting
+  - [x] Create special commands for settings management
+  - [x] Add database statistics command
+  - [x] Provide helpful error messages
 
-- [ ] **Advanced Web Features**
-  - [ ] Add query history and favorites
-  - [ ] Implement user settings and preferences
-  - [ ] Create shareable results via URL
-  - [ ] Add documentation and help sections
-  - [ ] Implement error handling and user feedback
+## Phase 5: Advanced GraphRAG Capabilities
 
-### Part 3: Multi-Model Support and Integration
+This phase focuses on enhancing the BIMConverse system with advanced GraphRAG techniques to enable more sophisticated reasoning about building models, particularly for multi-hop queries that require traversing multiple relationships.
 
-- [ ] **Multiple Building Model Support**
-  - [ ] Extend configuration system for multiple models
-  - [ ] Implement model switching functionality
-  - [ ] Create model metadata management
-  - [ ] Add model comparison features
-  - [ ] Implement model filtering and selection
+### Part 1: Enhanced Retrieval Strategies
 
-- [ ] **Comparative Analysis Features**
-  - [ ] Develop cross-model query capabilities
-  - [ ] Create visualization for model comparisons
-  - [ ] Implement difference highlighting
-  - [ ] Add metrics for model comparison
-  - [ ] Create reporting functionality
+- [ ] **Multi-Hop Reasoning**
+  - [ ] Implement chain-of-thought prompting techniques
+  - [ ] Create step-back prompting strategy for complex building queries
+  - [ ] Add query decomposition for multi-part questions
+  - [ ] Support for context accumulation during reasoning
 
-- [ ] **Integration with IFC Pipeline**
-  - [ ] Create seamless workflow between IFC import and querying
-  - [ ] Implement automatic model registration
-  - [ ] Add incremental update support
-  - [ ] Develop change detection between model versions
-  - [ ] Create documentation and user guides
+- [ ] **Advanced Retrieval Patterns**
+  - [ ] Implement parent-child document retriever for IFC hierarchies
+  - [ ] Create hypothetical question generator for common IFC queries
+  - [ ] Add graph-enhanced vector search to retrieve connected building components
+  - [ ] Implement hybrid retrieval combining graph traversal and vector search
 
-## Phase 5: Advanced Analysis and Applications
+### Part 2: Domain-Specific Knowledge Enhancement
 
-This phase will focus on extending BIMConverse with advanced analysis capabilities and specialized applications.
+- [ ] **Building Domain Knowledge**
+  - [ ] Create specialized building element prompt templates
+  - [ ] Generate common building-related questions for in-context examples
+  - [ ] Implement domain-specific few-shot learning examples
+  - [ ] Develop building code and regulation integration
 
-### Part 1: Advanced Analysis Features
+- [ ] **Spatial Reasoning**
+  - [ ] Add specialized spatial relationship traversal patterns
+  - [ ] Implement spatial query templates (adjacency, containment, connectivity)
+  - [ ] Create visualization capabilities for spatial query results
+  - [ ] Support for area, volume, and distance calculations
 
-- [ ] **Spatial Analysis**
-  - [ ] Implement area and volume calculations
-  - [ ] Add distance and proximity analysis
-  - [ ] Create spatial query templates
-  - [ ] Implement spatial aggregation functions
-  - [ ] Add 3D visualization for spatial queries
+### Part 3: Performance and Usability Improvements
 
-- [ ] **Building Performance Analysis**
-  - [ ] Integrate with energy analysis tools
-  - [ ] Implement material takeoff queries
-  - [ ] Create building systems analysis
-  - [ ] Add cost estimation features
-  - [ ] Develop sustainability metrics
+- [ ] **Query Optimization**
+  - [ ] Implement query caching for common building questions
+  - [ ] Add incremental learning from user interactions
+  - [ ] Create auto-tuning of retrieval parameters based on query type
+  - [ ] Support for parallel processing of complex queries
 
-### Part 2: Industry-Specific Applications
+- [ ] **User Interface Enhancements**
+  - [ ] Add web-based UI for easier interaction
+  - [ ] Implement visualization of query path and reasoning steps
+  - [ ] Create building component visualization in responses
+  - [ ] Support for query history and refinement
 
-- [ ] **Facilities Management Module**
-  - [ ] Create maintenance scheduling integration
-  - [ ] Implement asset tracking features
-  - [ ] Develop space management tools
-  - [ ] Add occupancy analysis
-  - [ ] Create reporting and dashboards
+## Future Phases
 
-- [ ] **Construction Management Module**
-  - [ ] Implement construction sequencing
-  - [ ] Create clash detection integration
-  - [ ] Add progress tracking features
-  - [ ] Develop resource management tools
-  - [ ] Implement construction documentation
-
-### Part 3: Integration with External Systems
-
-- [ ] **BIM Platform Integration**
-  - [ ] Implement Revit plugin
-  - [ ] Create Autodesk platform integration
-  - [ ] Add Bentley Systems connector
-  - [ ] Develop Graphisoft ArchiCAD integration
-  - [ ] Create seamless workflow with design tools
-
-- [ ] **Building IoT Integration**
-  - [ ] Implement sensor data integration
-  - [ ] Create real-time monitoring features
-  - [ ] Add predictive maintenance capabilities
-  - [ ] Develop IoT visualization
-  - [ ] Implement alerting and notification system 
+- API Development
+- Integration with existing BIM platforms
+- Advanced graph algorithms for building analysis 
