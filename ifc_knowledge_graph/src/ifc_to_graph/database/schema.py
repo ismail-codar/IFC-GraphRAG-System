@@ -86,7 +86,7 @@ class RelationshipTypes(Enum):
     BOUNDS_SPACE = "BOUNDS_SPACE"  # Element bounds a space
     IS_BOUNDED_BY = "IS_BOUNDED_BY"  # Space is bounded by an element
     CONNECTS_SPACES = "CONNECTS_SPACES"  # Element (e.g., door) connects spaces
-    PATH_TO = "PATH_TO"  # Path relationship (with steps as properties)
+    PATH_TO = "PATH_TO"
     
     # Map IFC relationship types to graph relationship types
     @classmethod
@@ -111,10 +111,17 @@ class RelationshipTypes(Enum):
         """Map a topological relationship to a graph relationship type."""
         mapping = {
             "adjacent": cls.ADJACENT,
+            "ADJACENT_TO": cls.ADJACENT_TO,
             "contains": cls.CONTAINS_TOPOLOGICALLY,
+            "CONTAINS": cls.CONTAINS,
+            "CONTAINS_SPATIALLY": cls.CONTAINS_TOPOLOGICALLY,
             "contained_by": cls.IS_CONTAINED_IN,
+            "CONTAINED_IN": cls.IS_CONTAINED_IN,
             "bounds_space": cls.BOUNDS_SPACE,
+            "BOUNDS": cls.BOUNDS_SPACE,
             "bounded_by": cls.IS_BOUNDED_BY,
+            "BOUNDED_BY": cls.IS_BOUNDED_BY,
+            "CONNECTS": cls.CONNECTS_SPACES
         }
         return mapping.get(topology_relationship, cls.CONNECTED_TO)
 

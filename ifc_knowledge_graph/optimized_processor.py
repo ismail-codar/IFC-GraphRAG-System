@@ -34,42 +34,57 @@ class OptimizedIfcProcessor(IfcProcessor):
     Optimized IFC processor with improved memory management and processing speed
     """
     
-    def __init__(self, ifc_file_path: str, neo4j_uri: str, neo4j_username: str, neo4j_password: str,
-                neo4j_database: str = "neo4j", enable_monitoring: bool = False,
-                parallel_processing: bool = False, enable_topological_analysis: bool = False,
-                batch_size: int = 5000, use_cache: bool = True):
+    def __init__(
+        self,
+        ifc_file_path: str,
+        neo4j_uri: str = "neo4j://localhost:7687",
+        neo4j_username: str = "neo4j",
+        neo4j_password: str = "password",
+        batch_size: int = 100,
+        clear_existing: bool = False,
+        enable_spatial_processing: bool = True,
+        enable_topological_analysis: bool = True,  # Set this to True by default
+        enable_domain_enrichment: bool = True
+    ) -> None:
         """
-        Initialize the optimized processor
+        Initialize the IFC processor.
         
         Args:
-            ifc_file_path: Path to the IFC file
-            neo4j_uri: URI for the Neo4j database
-            neo4j_username: Username for the Neo4j database
-            neo4j_password: Password for the Neo4j database
-            neo4j_database: Name of the Neo4j database
-            enable_monitoring: Whether to enable monitoring
-            parallel_processing: Whether to use parallel processing
-            enable_topological_analysis: Whether to enable topological analysis
-            batch_size: Size of batches for bulk operations (default: 5000)
-            use_cache: Whether to use caching for node existence checks
+            ifc_file_path (str): Path to the IFC file to process
+            neo4j_uri (str): URI of the Neo4j database
+            neo4j_username (str): Username for Neo4j database
+            neo4j_password (str): Password for Neo4j database
+            batch_size (int): Number of elements to process in a batch
+            clear_existing (bool): Whether to clear existing data in the database
+            enable_spatial_processing (bool): Whether to enable spatial processing
+            enable_topological_analysis (bool): Whether to enable topological analysis
+            enable_domain_enrichment (bool): Whether to enable domain enrichment
         """
+        # Store parameters
+        self.ifc_file_path = os.path.abspath(ifc_file_path)
+        self.neo4j_uri = neo4j_uri
+        self.neo4j_username = neo4j_username
+        self.neo4j_password = neo4j_password
+        self.batch_size = batch_size
+        self.clear_existing = clear_existing
+        self.enable_spatial_processing = enable_spatial_processing
+        self.enable_topological_analysis = enable_topological_analysis
+        self.enable_domain_enrichment = enable_domain_enrichment
+        
         super().__init__(
             ifc_file_path=ifc_file_path,
             neo4j_uri=neo4j_uri,
             neo4j_username=neo4j_username,
             neo4j_password=neo4j_password,
-            neo4j_database=neo4j_database,
-            enable_monitoring=enable_monitoring,
-            parallel_processing=parallel_processing,
+            neo4j_database="neo4j",
+            enable_monitoring=False,
+            parallel_processing=False,
             enable_topological_analysis=enable_topological_analysis
         )
         
-        self.batch_size = batch_size
-        self.use_cache = use_cache
-        
         # Replace standard mapper with optimized mapper
-        self.neo4j = Neo4jConnector(neo4j_uri, neo4j_username, neo4j_password, neo4j_database)
-        self.mapper = OptimizedIfcToGraphMapper(self.neo4j, batch_size=batch_size, use_cache=use_cache)
+        self.neo4j = Neo4jConnector(neo4j_uri, neo4j_username, neo4j_password, "neo4j")
+        self.mapper = OptimizedIfcToGraphMapper(self.neo4j, batch_size=batch_size, use_cache=True)
         
         # Track progress
         self.processing_start_time = None
@@ -156,7 +171,7 @@ class OptimizedIfcProcessor(IfcProcessor):
         
         # Setup the database
         logger.info("Setting up database schema...")
-        self.setup_database(clear_existing=True)
+        self.setup_database(clear_existing=self.clear_existing)
         
         # Add processing of project information and spatial structure
         logger.info("Processing project information...")
@@ -382,42 +397,36 @@ class OptimizedIfcProcessor(IfcProcessor):
     
     def _run_topological_analysis(self) -> None:
         """Run topological analysis for spatial relationships"""
-        start_time = time.time()
         
         if not TOPOLOGICPY_AVAILABLE:
-            logger.error("TopologicPy is not available. Cannot run topological analysis.")
+            logger.warning("TopologicPy not available. Skipping topological analysis.")
             return
             
-        logger.info("Beginning topological analysis...")
+        start_time = time.time()
+        logger.info("Starting topological analysis...")
         
         try:
             # Only analyze specific element types that benefit from topology analysis
             topology_element_types = [
                 "IfcWall", "IfcSlab", "IfcColumn", "IfcBeam", "IfcWindow", "IfcDoor", 
                 "IfcSpace", "IfcBuildingStorey", "IfcBuilding", "IfcSite", "IfcWallStandardCase",
-                "IfcCovering", "IfcRoof", "IfcStair", "IfcStairFlight", "IfcFurnishingElement"
+                "IfcRoof", "IfcStair", "IfcOpeningElement" 
             ]
             
-            # Filter elements for topological analysis to reduce processing time
+            # Get elements from the IFC file
+            logger.info("Getting elements for topological analysis...")
             topology_elements = {}
-            all_elements = self.parser.get_elements()
-            logger.info(f"Filtering elements for topology analysis from {len(all_elements)} total elements")
             
-            # Log the types of elements available
-            element_types = {}
-            for element in all_elements:
-                element_type = element.is_a()
-                if element_type not in element_types:
-                    element_types[element_type] = 0
-                element_types[element_type] += 1
+            for entity_type in topology_element_types:
+                try:
+                    elements = self.parser.file.by_type(entity_type)
+                    for element in elements:
+                        if hasattr(element, "GlobalId"):
+                            topology_elements[element.GlobalId] = element
+                except Exception as e:
+                    logger.error(f"Error getting {entity_type} elements: {e}")
             
-            logger.info(f"IFC file contains the following element types: {element_types}")
-            
-            for element in all_elements:
-                if element.is_a() in topology_element_types:
-                    topology_elements[element.GlobalId] = element
-            
-            logger.info(f"Selected {len(topology_elements)} elements for topological analysis")
+            logger.info(f"Found {len(topology_elements)} elements for topological analysis")
             
             if not topology_elements:
                 logger.warning("No elements found for topological analysis. Skipping.")
@@ -436,120 +445,74 @@ class OptimizedIfcProcessor(IfcProcessor):
                 logger.error(f"Failed to initialize TopologicAnalyzer: {init_error}", exc_info=True)
                 return
                 
-            # Run the analysis for adjacency relationships
-            logger.info("Starting adjacency analysis of elements...")
+            # Directly analyze elements in one go to get all relationship types
+            logger.info("Analyzing element relationships...")
             try:
-                adjacency_dict = analyzer.get_adjacency_relationships()
-                # Convert dictionary to list format
-                adjacency_relationships = []
-                for source_id, target_ids in adjacency_dict.items():
-                    for target_id in target_ids:
-                        adjacency_relationships.append({
-                            'source_id': source_id,
-                            'target_id': target_id,
-                            'relationship_type': 'ADJACENT_TO'
-                        })
-                logger.info(f"Adjacency analysis completed. Found {len(adjacency_relationships)} adjacency relationships.")
-            except Exception as adjacency_error:
-                logger.error(f"Error during adjacency analysis: {adjacency_error}", exc_info=True)
-                adjacency_relationships = []
-            
-            # Run the analysis for containment relationships
-            logger.info("Starting containment analysis of elements...")
-            try:
-                containment_dict = analyzer.get_containment_relationships()
-                # Convert dictionary to list format
-                containment_relationships = []
-                for container_id, contained_ids in containment_dict.items():
-                    for contained_id in contained_ids:
-                        containment_relationships.append({
-                            'source_id': container_id,
-                            'target_id': contained_id,
-                            'relationship_type': 'CONTAINS_TOPOLOGICALLY'
-                        })
-                logger.info(f"Containment analysis completed. Found {len(containment_relationships)} containment relationships.")
-            except Exception as containment_error:
-                logger.error(f"Error during containment analysis: {containment_error}", exc_info=True)
-                containment_relationships = []
+                relationships = analyzer.analyze_elements(topology_elements)
+                logger.info(f"Found {len(relationships)} topological relationships")
                 
-            # Run the analysis for space boundary relationships
-            logger.info("Starting space boundary analysis...")
-            try:
-                space_boundary_relationships = analyzer.get_space_boundary_relationships()
-                logger.info(f"Space boundary analysis completed. Found {len(space_boundary_relationships)} space boundary relationships.")
-            except Exception as space_error:
-                logger.error(f"Error during space boundary analysis: {space_error}", exc_info=True)
-                space_boundary_relationships = []
+                # Convert to proper format for the database
+                relationship_batch = []
+                batch_count = 0
                 
-            # Combine all relationships
-            relationships = adjacency_relationships + containment_relationships + space_boundary_relationships
-            logger.info(f"Total topological relationships found: {len(relationships)}")
-            
-            if not relationships:
-                logger.warning("No relationships were found by the topological analyzer.")
-                return
+                # Track relationship types for logging
+                rel_type_counts = {}
                 
-            # Log each type of relationship found
-            rel_types = {}
-            for rel in relationships:
-                rel_type = rel.get('relationship_type', 'unknown')
-                if rel_type not in rel_types:
-                    rel_types[rel_type] = 0
-                rel_types[rel_type] += 1
+                for rel in relationships:
+                    # Basic validation
+                    if not 'source_id' in rel or not 'target_id' in rel or not 'relationship_type' in rel:
+                        logger.warning(f"Skipping malformed relationship: {rel}")
+                        continue
+                        
+                    # Count relationship types
+                    rel_type = rel.get('relationship_type', 'unknown')
+                    if rel_type not in rel_type_counts:
+                        rel_type_counts[rel_type] = 0
+                    rel_type_counts[rel_type] += 1
+                    
+                    # Map topological relationship type to Neo4j relationship type
+                    mapped_rel_type = RelationshipTypes.from_topologic_relationship(rel_type).value
+                    
+                    # Build properties
+                    properties = {
+                        'relationshipSource': 'topologicalAnalysis',
+                        'fromType': rel_type
+                    }
+                    
+                    # Add the relationship to the batch
+                    relationship_batch.append({
+                        'sourceId': rel['source_id'],
+                        'targetId': rel['target_id'],
+                        'type': mapped_rel_type,
+                        'properties': properties
+                    })
+                    
+                    # Process batch if it reaches the batch size
+                    if len(relationship_batch) >= self.batch_size:
+                        logger.info(f"Creating batch of {len(relationship_batch)} topological relationships...")
+                        self.mapper.create_relationships_batch(relationship_batch)
+                        batch_count += len(relationship_batch)
+                        relationship_batch = []
                 
-            logger.info(f"Found relationships by type: {rel_types}")
-            
-            # Log a sample of the relationships
-            for i, rel in enumerate(relationships[:10]):
-                logger.info(f"Sample relation {i+1}: {rel.get('source_id', 'unknown')} {rel.get('relationship_type', 'unknown')} {rel.get('target_id', 'unknown')}")
-            
-            # Convert relationships to mapper format
-            logger.info("Converting relationships to mapper format...")
-            relationship_batch = []
-            
-            # Import the schema mapping for topological relationships
-            from src.ifc_to_graph.database.schema import get_topologic_relationship_type
-            
-            for rel in relationships:
-                # Make sure relationship has required fields
-                if 'source_id' not in rel or 'target_id' not in rel or 'relationship_type' not in rel:
-                    logger.warning(f"Skipping malformed relationship: {rel}")
-                    continue
-                
-                # Map the topological relationship type to proper Neo4j relationship type
-                mapped_rel_type = get_topologic_relationship_type(rel['relationship_type'])
-                if not mapped_rel_type:
-                    # If no mapping found, use as-is but with proper Neo4j formatting
-                    mapped_rel_type = rel['relationship_type'].upper().replace(' ', '_')
-                
-                # Extract properties if available
-                rel_properties = {}
-                if 'properties' in rel and isinstance(rel['properties'], dict):
-                    rel_properties = rel['properties']
-                
-                logger.debug(f"Adding relationship: {rel['source_id']} {mapped_rel_type} {rel['target_id']}")
-                
-                # Convert from analyzer format to mapper format
-                relationship_batch.append({
-                    'sourceId': rel['source_id'],
-                    'targetId': rel['target_id'],
-                    'type': mapped_rel_type,
-                    'properties': rel_properties,
-                    'is_topological': True
-                })
-                
-                if len(relationship_batch) >= self.batch_size:
-                    logger.info(f"Processing batch of {len(relationship_batch)} relationships")
+                # Process any remaining relationships
+                if relationship_batch:
+                    logger.info(f"Creating final batch of {len(relationship_batch)} topological relationships...")
                     self.mapper.create_relationships_batch(relationship_batch)
-                    relationship_batch = []
+                    batch_count += len(relationship_batch)
+                
+                # Log relationship type counts
+                logger.info("Topological relationship types created:")
+                for rel_type, count in rel_type_counts.items():
+                    logger.info(f"  - {rel_type}: {count}")
+                
+                logger.info(f"Created total of {batch_count} topological relationships")
+                
+            except Exception as e:
+                logger.error(f"Error during topological relationship analysis: {e}", exc_info=True)
             
-            # Process any remaining relationships
-            if relationship_batch:
-                logger.info(f"Processing final batch of {len(relationship_batch)} relationships")
-                self.mapper.create_relationships_batch(relationship_batch)
-            
-            # Flush any remaining batches
-            self.mapper.flush_batches()
+            # Force garbage collection due to memory usage
+            import gc
+            gc.collect()
             
             elapsed = time.time() - start_time
             logger.info(f"Finished topological analysis in {elapsed:.2f} seconds")
