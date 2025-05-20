@@ -295,7 +295,7 @@ class TopologicAnalyzer:
                             if max(face_indices) >= len(vertices):
                                 logger.warning(f"Invalid vertex index in face: max index={max(face_indices)}, len(vertices)={len(vertices)}")
                                 continue
-                                
+                    
                             # Get vertices for the face
                             for idx in face_indices:
                                 wire_vertices.append(vertices[idx])
@@ -375,7 +375,7 @@ class TopologicAnalyzer:
             
             logger.warning(f"Failed to create cell after {max_retries} attempts for {ifc_element.GlobalId}")
             return None
-            
+        
         except Exception as e:
             logger.error(f"Error in _create_topologic_cell for {ifc_element.GlobalId}: {str(e)}")
             return None
@@ -914,18 +914,18 @@ class TopologicAnalyzer:
                 for element in all_elements:
                     if not hasattr(element, "GlobalId"):
                         continue
-                        
+                    
                     # Find spaces that elements are contained in
                     if element.is_a("IfcSpace"):
                         # Find elements contained in this space
                         for rel in element.ContainsElements if hasattr(element, "ContainsElements") else []:
                             if not hasattr(rel, "RelatedElements"):
                                 continue
-                                
+                            
                             for contained in rel.RelatedElements:
                                 if not hasattr(contained, "GlobalId"):
                                     continue
-                                    
+                                
                                 if contained.GlobalId in global_ids:
                                     containment_map[element.GlobalId].append(contained.GlobalId)
             
@@ -951,7 +951,7 @@ class TopologicAnalyzer:
                         # Skip if same element
                         if gid1 == gid2:
                             continue
-                        
+                            
                         # Check containment based on topology type
                         is_contained = False
                         
@@ -1015,7 +1015,7 @@ class TopologicAnalyzer:
                                         
                                 except Exception as cont_err:
                                     logger.debug(f"Error checking containment between {gid1} and {gid2}: {str(cont_err)}")
-                                    continue
+                        continue
                         
                         # Add to containment map if contained
                         if is_contained:
@@ -1034,11 +1034,11 @@ class TopologicAnalyzer:
             logger.error(f"Error extracting containment relationships: {str(e)}")
             
         return containment_map
-    
+        
     def _get_ifc_model(self):
         """
         Get the IFC model from the parser in a robust way that handles different parser implementations.
-        
+            
         Returns:
             The IFC model object
         """
@@ -1431,14 +1431,14 @@ class TopologicAnalyzer:
         try:
             # Get the IFC model - use robust method to get file
             ifc_model = self._get_ifc_model()
-            
+        
             # Extract adjacency relationships
             try:
                 adjacency_map = self.get_adjacency_relationships()
                 results["adjacency"] = adjacency_map
             except Exception as e:
                 logger.error(f"Error extracting adjacency relationships: {str(e)}")
-            
+        
             # Extract containment relationships
             try:
                 containment_map = self.get_containment_relationships()
@@ -1459,7 +1459,7 @@ class TopologicAnalyzer:
                 results["connectivity"] = connectivity_graph
             except Exception as e:
                 logger.error(f"Error generating connectivity graph: {str(e)}")
-            
+        
         except Exception as e:
             logger.error(f"Error analyzing building topology: {str(e)}")
         

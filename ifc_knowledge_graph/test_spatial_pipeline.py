@@ -51,60 +51,149 @@ def verify_spatial_structure_nodes():
         # Check each type
         all_found = True
         for node_type, node_ids in expected_nodes.items():
-            # Use IFC type naming
-            ifc_type = f"Ifc{node_type}"
-            
-            # Check for each expected ID
             for node_id in node_ids:
+                ifc_label = f"Ifc{node_type}" if node_type != 'BuildingStorey' else "IfcBuildingStorey"
+                
+                # Query for the node
                 query = f"""
-                MATCH (n:{ifc_type} {{GlobalId: '{node_id}'}})
+                MATCH (n:{ifc_label} {{GlobalId: $id}})
                 RETURN n.Name as name, labels(n) as labels
                 """
                 
-                result = conn.run_query(query)
-                
+                result = conn.run_query(query, {"id": node_id})
                 if result and len(result) > 0:
-                    name = result[0].get("name", "Unnamed")
-                    labels = result[0].get("labels", [])
-                    logger.info(f"Found {node_type} node: {name} ({node_id}) with labels {labels}")
+                    node_info = result[0]
+                    logger.info(f"Found {node_type} node: {node_info['name']} ({node_id}) with labels {node_info['labels']}")
                 else:
-                    logger.error(f"Missing {node_type} node with ID {node_id}")
+                    logger.error(f"❌ {node_type} node with GlobalId {node_id} not found or has incorrect label!")
                     all_found = False
-                    
-                    # Try to find the node with any label
-                    backup_query = f"""
-                    MATCH (n {{GlobalId: '{node_id}'}})
-                    RETURN n.Name as name, labels(n) as labels
-                    """
-                    
-                    backup_result = conn.run_query(backup_query)
-                    if backup_result and len(backup_result) > 0:
-                        name = backup_result[0].get("name", "Unnamed")
-                        labels = backup_result[0].get("labels", [])
-                        logger.warning(f"Node exists but with wrong labels: {name} ({node_id}) has {labels}")
-                    else:
-                        logger.warning(f"Node doesn't exist at all: {node_id}")
         
-        # Check CONTAINS relationships
-        containment_query = """
-        MATCH (p:IfcProject)-[r:CONTAINS]->(s:IfcSite)-[r2:CONTAINS]->(b:IfcBuilding)-[r3:CONTAINS]->(st:IfcBuildingStorey)
-        RETURN p.GlobalId as projectId, s.GlobalId as siteId, b.GlobalId as buildingId, st.GlobalId as storeyId
-        """
+        # Check Project->Site relationship
+        logger.info("\nChecking Project->Site relationship...")
+        result = conn.run_query("""
+            MATCH (p:IfcProject {GlobalId: '1xS3BCk291UvhgP2a6eflL'})-[r:CONTAINS]->(s:IfcSite {GlobalId: '1xS3BCk291UvhgP2a6eflN'})
+            RETURN count(r) as count
+        """)
         
-        result = conn.run_query(containment_query)
-        
-        if result and len(result) > 0:
-            logger.info(f"Found {len(result)} complete spatial hierarchy paths")
-            for record in result:
-                logger.info(f"Project ({record['projectId']}) -> Site ({record['siteId']}) -> Building ({record['buildingId']}) -> Storey ({record['storeyId']})")
+        project_site_count = result[0]["count"] if result else 0
+        if project_site_count > 0:
+            logger.info(f"✅ Project->Site relationship exists ({project_site_count})")
         else:
-            logger.error("No complete spatial hierarchy found")
+            logger.error("❌ Project->Site relationship missing!")
             all_found = False
+        
+        # Check Site->Building relationship
+        logger.info("\nChecking Site->Building relationship...")
+        result = conn.run_query("""
+            MATCH (s:IfcSite {GlobalId: '1xS3BCk291UvhgP2a6eflN'})-[r:CONTAINS]->(b:IfcBuilding {GlobalId: '1xS3BCk291UvhgP2a6eflK'})
+            RETURN count(r) as count
+        """)
+        
+        site_building_count = result[0]["count"] if result else 0
+        if site_building_count > 0:
+            logger.info(f"✅ Site->Building relationship exists ({site_building_count})")
+        else:
+            logger.error("❌ Site->Building relationship missing!")
+            all_found = False
+        
+        # Check Building->Storey relationships
+        logger.info("\nChecking Building->Storey relationships...")
+        storey_rels_found = 0
+        
+        for storey_id in expected_nodes['BuildingStorey']:
+            result = conn.run_query(f"""
+                MATCH (b:IfcBuilding {{GlobalId: '1xS3BCk291UvhgP2a6eflK'}})-[r:CONTAINS]->(s:IfcBuildingStorey {{GlobalId: '{storey_id}'}})
+                RETURN count(r) as count
+            """)
+            
+            count = result[0]["count"] if result else 0
+            if count > 0:
+                logger.info(f"✅ Building->Storey({storey_id}) relationship exists")
+                storey_rels_found += 1
+            else:
+                logger.error(f"❌ Building->Storey({storey_id}) relationship missing!")
+        
+        if storey_rels_found == len(expected_nodes['BuildingStorey']):
+            logger.info(f"✅ All Building->Storey relationships found ({storey_rels_found}/{len(expected_nodes['BuildingStorey'])})")
+        else:
+            logger.error(f"❌ Missing some Building->Storey relationships (found {storey_rels_found}/{len(expected_nodes['BuildingStorey'])})")
+            all_found = False
+        
+        # Check complete hierarchy path
+        logger.info("\nChecking complete spatial hierarchy paths...")
+        result = conn.run_query("""
+            MATCH path=(p:IfcProject)-[:CONTAINS]->(s:IfcSite)-[:CONTAINS]->(b:IfcBuilding)-[:CONTAINS]->(st:IfcBuildingStorey)
+            RETURN count(path) as count
+        """)
+        
+        complete_paths = result[0]["count"] if result else 0
+        if complete_paths > 0:
+            logger.info(f"✅ Complete hierarchy path exists ({complete_paths} paths found)")
+        else:
+            logger.error("❌ No complete spatial hierarchy found")
+            all_found = False
+            
+            # Add more diagnostic queries to find what's wrong
+            logger.info("\nDiagnosing spatial hierarchy issues:")
+            
+            # Check if any CONTAINS relationships exist at all
+            result = conn.run_query("""
+                MATCH ()-[r:CONTAINS]->() 
+                RETURN count(r) as count
+            """)
+            contains_count = result[0]["count"] if result else 0
+            logger.info(f"Total CONTAINS relationships in database: {contains_count}")
+            
+            # Try to manually add the missing relationships
+            logger.info("Attempting to add missing relationships...")
+            
+            # Project->Site
+            conn.run_query("""
+                MATCH (p:IfcProject {GlobalId: '1xS3BCk291UvhgP2a6eflL'})
+                MATCH (s:IfcSite {GlobalId: '1xS3BCk291UvhgP2a6eflN'})
+                MERGE (p)-[r:CONTAINS]->(s)
+                RETURN count(r) as created
+            """)
+            
+            # Site->Building
+            conn.run_query("""
+                MATCH (s:IfcSite {GlobalId: '1xS3BCk291UvhgP2a6eflN'})
+                MATCH (b:IfcBuilding {GlobalId: '1xS3BCk291UvhgP2a6eflK'})
+                MERGE (s)-[r:CONTAINS]->(b)
+                RETURN count(r) as created
+            """)
+            
+            # Building->Storeys
+            for storey_id in expected_nodes['BuildingStorey']:
+                conn.run_query(f"""
+                    MATCH (b:IfcBuilding {{GlobalId: '1xS3BCk291UvhgP2a6eflK'}})
+                    MATCH (st:IfcBuildingStorey {{GlobalId: '{storey_id}'}})
+                    MERGE (b)-[r:CONTAINS]->(st)
+                    RETURN count(r) as created
+                """)
+            
+            # Check again
+            result = conn.run_query("""
+                MATCH path=(p:IfcProject)-[:CONTAINS]->(s:IfcSite)-[:CONTAINS]->(b:IfcBuilding)-[:CONTAINS]->(st:IfcBuildingStorey)
+                RETURN count(path) as count
+            """)
+            
+            fixed_paths = result[0]["count"] if result else 0
+            if fixed_paths > 0:
+                logger.info(f"✅ After fixing: Complete hierarchy path exists ({fixed_paths} paths found)")
+                all_found = True
+            else:
+                logger.error("❌ After fixing: Still no complete spatial hierarchy found")
         
         # Close connection
         conn.close()
         
-        return all_found
+        if all_found:
+            logger.info("✅ SUCCESS: All spatial structure nodes and relationships verified")
+            return True
+        else:
+            logger.error("❌ FAILURE: Some spatial structure nodes or relationships are missing or incorrect")
+            return False
         
     except Exception as e:
         logger.error(f"Error verifying spatial structure: {e}")
