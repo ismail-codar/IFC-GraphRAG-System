@@ -16,7 +16,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("BIMConverse")
+logger = logging.getLogger(__name__)
 
 def create_parser() -> argparse.ArgumentParser:
     """Create command-line argument parser."""

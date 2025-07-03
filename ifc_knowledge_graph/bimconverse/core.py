@@ -15,19 +15,14 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from neo4j import GraphDatabase
 from neo4j_graphrag.embeddings import OpenAIEmbeddings
 from neo4j_graphrag.generation import GraphRAG
-from neo4j_graphrag.llm import OpenAILLM
+from neo4j_graphrag.llm import OpenAILLM, OllamaLLM
 from neo4j_graphrag.retrievers import VectorRetriever, HybridRetriever, Text2CypherRetriever
 
 # Import custom retrievers
 import bimconverse.retrievers as retrievers
 from bimconverse.retrievers import MultihopRetriever
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("BIMConverse")
+logger = logging.getLogger(__name__)
 
 class BIMConverseRAG:
     """
@@ -185,16 +180,31 @@ class BIMConverseRAG:
     def _initialize_rag(self):
         """Initialize the GraphRAG components."""
         try:
-            # Create embeddings provider
-            self.embedder = OpenAIEmbeddings(
-                model=self.config["openai"]["embedding_model"]
-            )
-            
             # Create the LLM for generation
+            model_params = {
+                "temperature": self.config["openai"]["temperature"]
+            }
+            if "base_url" in self.config["openai"]:
+                model_params["base_url"] = self.config["openai"]["base_url"]
+                os.environ.setdefault("OPENAI_BASE_URL", self.config["openai"]["base_url"])
+            if "api_key" in self.config["openai"]:
+                model_params["api_key"] = self.config["openai"]["api_key"]
+                os.environ.setdefault("OPENAI_API_KEY", self.config["openai"]["api_key"])
             self.llm = OpenAILLM(
                 model_name=self.config["openai"]["llm_model"],
-                model_params={"temperature": self.config["openai"]["temperature"]}
+                model_params=model_params
             )
+            
+            # delete self.llm.model_params
+            if "base_url" in self.llm.model_params:
+                del self.llm.model_params["base_url"]
+            if "api_key" in self.llm.model_params:
+                del self.llm.model_params["api_key"]
+                
+            # self.llm = OllamaLLM(
+            #     model_name=self.config["openai"]["llm_model"],
+            #     model_params=model_params
+            # )
             
             # Create the retrievers
             self.text2cypher_retriever = self._initialize_text2cypher_retriever()
@@ -389,54 +399,49 @@ class BIMConverseRAG:
         else:
             query_with_context = query_text
         
-        try:
-            # Execute the query using the RAG pipeline's search method 
-            # (previously named "query" - this is the API change we're fixing)
-            response = self.rag.search(query_with_context)
-            
-            # Extract relevant information
-            result = {
-                "query": query_text,
-                "answer": response.answer if hasattr(response, "answer") else str(response),
-                "retrieval_strategy": "multihop" if should_use_multihop else "standard",
-                "metadata": {}
-            }
-            
-            # Add different metadata based on retriever type
-            if should_use_multihop and hasattr(response, "intermediate_results"):
-                result["metadata"]["intermediate_results"] = response.intermediate_results
-                result["metadata"]["sub_queries"] = getattr(response, "sub_queries", [])
-            else:
-                # Add standard retriever metadata
-                if hasattr(response, "retriever_result") and response.retriever_result is not None:
-                    retriever_result = response.retriever_result
-                    
-                    # Extract cypher query from metadata if available
-                    if hasattr(retriever_result, "metadata") and retriever_result.metadata:
-                        metadata = retriever_result.metadata
-                        if isinstance(metadata, dict) and "cypher" in metadata:
-                            result["metadata"]["cypher_query"] = metadata["cypher"]
-                    
-                    # Extract sources from items if available
-                    if hasattr(retriever_result, "items"):
-                        result["metadata"]["records"] = [{
-                            "content": item.content if hasattr(item, "content") else "",
-                            "metadata": item.metadata if hasattr(item, "metadata") else {}
-                        } for item in retriever_result.items]
+        # Execute the query using the RAG pipeline's search method 
+        # (previously named "query" - this is the API change we're fixing)
+        logging.info(f"Query with context: {query_with_context}")
+        response = self.rag.search(
+            query_text=query_with_context
+        )
+        logging.info(f"Response: {response}")
+        
+        # Extract relevant information
+        result = {
+            "query": query_text,
+            "answer": response.answer if hasattr(response, "answer") else str(response),
+            "retrieval_strategy": "multihop" if should_use_multihop else "standard",
+            "metadata": {}
+        }
+        
+        # Add different metadata based on retriever type
+        if should_use_multihop and hasattr(response, "intermediate_results"):
+            result["metadata"]["intermediate_results"] = response.intermediate_results
+            result["metadata"]["sub_queries"] = getattr(response, "sub_queries", [])
+        else:
+            # Add standard retriever metadata
+            if hasattr(response, "retriever_result") and response.retriever_result is not None:
+                retriever_result = response.retriever_result
                 
-            # Add conversation context if enabled
-            if self.context_enabled:
-                self.add_to_conversation_history(query_text, result["answer"])
+                # Extract cypher query from metadata if available
+                if hasattr(retriever_result, "metadata") and retriever_result.metadata:
+                    metadata = retriever_result.metadata
+                    if isinstance(metadata, dict) and "cypher" in metadata:
+                        result["metadata"]["cypher_query"] = metadata["cypher"]
                 
-            return result
-        except Exception as e:
-            logger.error(f"Error processing query: {e}")
-            return {
-                "query": query_text,
-                "answer": f"Sorry, I encountered an error while processing your query: {str(e)}",
-                "error": str(e),
-                "retrieval_strategy": "multihop" if should_use_multihop else "standard"
-            }
+                # Extract sources from items if available
+                if hasattr(retriever_result, "items"):
+                    result["metadata"]["records"] = [{
+                        "content": item.content if hasattr(item, "content") else "",
+                        "metadata": item.metadata if hasattr(item, "metadata") else {}
+                    } for item in retriever_result.items]
+            
+        # Add conversation context if enabled
+        if self.context_enabled:
+            self.add_to_conversation_history(query_text, result["answer"])
+            
+        return result
     
     def add_to_conversation_history(self, question: str, answer: str) -> None:
         """

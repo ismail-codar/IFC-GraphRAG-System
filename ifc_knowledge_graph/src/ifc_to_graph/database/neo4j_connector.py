@@ -189,6 +189,7 @@ class Neo4jConnector:
                         logger.warning(f"Failed to start timer: {str(e)}")
                 
                 # Execute query
+                print(f"Running query: {query}")
                 result = session.run(query, safe_parameters)
                 records = [record.data() for record in result]
                 

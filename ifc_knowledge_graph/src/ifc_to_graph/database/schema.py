@@ -135,10 +135,10 @@ class SchemaManager:
     # Cypher statements for schema setup
     SCHEMA_CONSTRAINTS = [
         # Unique GlobalId constraint for Elements
-        """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (e:Element) 
-        REQUIRE e.GlobalId IS UNIQUE
-        """,
+        # """
+        # CREATE CONSTRAINT IF NOT EXISTS FOR (e:Element) 
+        # REQUIRE e.GlobalId IS UNIQUE
+        # """,
         
         # Unique GlobalId constraint for Project
         """
@@ -167,10 +167,10 @@ class SchemaManager:
         REQUIRE s.GlobalId IS UNIQUE
         """,
         
-        """
-        CREATE CONSTRAINT IF NOT EXISTS FOR (m:Material) 
-        REQUIRE m.Name IS UNIQUE
-        """,
+        # """
+        # CREATE CONSTRAINT IF NOT EXISTS FOR (m:Material) 
+        # REQUIRE m.Name IS UNIQUE
+        # """,
         
         """
         CREATE CONSTRAINT IF NOT EXISTS FOR (t:Type) 

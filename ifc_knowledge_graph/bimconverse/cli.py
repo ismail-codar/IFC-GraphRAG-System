@@ -34,9 +34,11 @@ from bimconverse.core import BIMConverseRAG, create_config_file
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='BIMConverse.log',         # Log file path
+    filemode='a'                # Append mode (use 'w' to overwrite each time)
 )
-logger = logging.getLogger("BIMConverse")
+logger = logging.getLogger(__name__)
 
 # Create a Rich console for pretty output
 console = Console()

@@ -40,11 +40,15 @@ class OptimizedIfcProcessor(IfcProcessor):
         neo4j_uri: str = "neo4j://localhost:7687",
         neo4j_username: str = "neo4j",
         neo4j_password: str = "password",
+        neo4j_database: str = "neo4j",
+        enable_monitoring: bool = False,
+        parallel_processing: bool = False,
         batch_size: int = 100,
         clear_existing: bool = False,
         enable_spatial_processing: bool = True,
         enable_topological_analysis: bool = True,  # Set this to True by default
-        enable_domain_enrichment: bool = True
+        enable_domain_enrichment: bool = True,
+        use_cache: bool = True
     ) -> None:
         """
         Initialize the IFC processor.
@@ -54,22 +58,30 @@ class OptimizedIfcProcessor(IfcProcessor):
             neo4j_uri (str): URI of the Neo4j database
             neo4j_username (str): Username for Neo4j database
             neo4j_password (str): Password for Neo4j database
+            neo4j_database (str): Name of the Neo4j database
+            enable_monitoring (bool): Whether to enable performance monitoring
+            parallel_processing (bool): Whether to enable parallel processing
             batch_size (int): Number of elements to process in a batch
             clear_existing (bool): Whether to clear existing data in the database
             enable_spatial_processing (bool): Whether to enable spatial processing
             enable_topological_analysis (bool): Whether to enable topological analysis
             enable_domain_enrichment (bool): Whether to enable domain enrichment
+            use_cache (bool): Whether to use cache
         """
         # Store parameters
         self.ifc_file_path = os.path.abspath(ifc_file_path)
         self.neo4j_uri = neo4j_uri
         self.neo4j_username = neo4j_username
         self.neo4j_password = neo4j_password
+        self.neo4j_database = neo4j_database
+        self.enable_monitoring = enable_monitoring
+        self.parallel_processing = parallel_processing
         self.batch_size = batch_size
         self.clear_existing = clear_existing
         self.enable_spatial_processing = enable_spatial_processing
         self.enable_topological_analysis = enable_topological_analysis
         self.enable_domain_enrichment = enable_domain_enrichment
+        self.use_cache = use_cache
         
         super().__init__(
             ifc_file_path=ifc_file_path,
@@ -79,12 +91,12 @@ class OptimizedIfcProcessor(IfcProcessor):
             neo4j_database="neo4j",
             enable_monitoring=False,
             parallel_processing=False,
-            enable_topological_analysis=enable_topological_analysis
+            enable_topological_analysis=enable_topological_analysis,
         )
         
         # Replace standard mapper with optimized mapper
-        self.neo4j = Neo4jConnector(neo4j_uri, neo4j_username, neo4j_password, "neo4j")
-        self.mapper = OptimizedIfcToGraphMapper(self.neo4j, batch_size=batch_size, use_cache=True)
+        self.neo4j = Neo4jConnector(neo4j_uri, neo4j_username, neo4j_password, neo4j_database)
+        self.mapper = OptimizedIfcToGraphMapper(self.neo4j, batch_size=batch_size, use_cache=use_cache)
         
         # Track progress
         self.processing_start_time = None

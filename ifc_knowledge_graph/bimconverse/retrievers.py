@@ -312,7 +312,7 @@ class MultihopRetriever:
         
     def search(
         self, 
-        query: str,
+        query_text: str,
         multihop_detection: bool = True,
         use_cot: bool = True,
         visualize: bool = True,
@@ -331,7 +331,7 @@ class MultihopRetriever:
         Returns:
             Search results with contextual information
         """
-        logger.info(f"Multihop search for query: {query}")
+        logger.info(f"Multihop search for query: {query_text}")
         
         # Check if we need to validate or enhance the schema
         if self.schema_mapper and multihop_detection:
@@ -344,12 +344,12 @@ class MultihopRetriever:
         # Determine if this is a multihop query
         is_multihop = False
         if multihop_detection:
-            is_multihop = self._is_multihop_query(query)
+            is_multihop = self._is_multihop_query(query_text)
             logger.info(f"Multihop detection: {is_multihop}")
         
         # Initialize multihop memory for tracking context across steps
         multihop_memory = {
-            "query": query,
+            "query": query_text,
             "steps": [],
             "accumulated_context": [],
             "is_multihop": is_multihop
@@ -357,10 +357,10 @@ class MultihopRetriever:
         
         if is_multihop:
             # Handle multihop reasoning
-            return self._process_multihop_query(query, use_cot, visualize, max_hops, multihop_memory)
+            return self._process_multihop_query(query_text, use_cot, visualize, max_hops, multihop_memory)
         else:
             # Handle single hop query
-            return self._process_single_hop_query(query, use_cot, visualize, multihop_memory)
+            return self._process_single_hop_query(query_text, use_cot, visualize, multihop_memory)
     
     def _is_multihop_query(self, query: str) -> bool:
         """
@@ -697,7 +697,14 @@ class MultihopRetriever:
         try:
             # Try the invoke method first (newer API)
             if hasattr(self.llm, 'invoke'):
-                return self.llm.invoke(prompt)
+                response = self.llm.invoke(prompt)
+                # Handle different response formats
+                if hasattr(response, 'content'):
+                    return response.content
+                elif isinstance(response, str):
+                    return response
+                else:
+                    return str(response)
             # Fall back to generate method (older API)
             elif hasattr(self.llm, 'generate'):
                 return self.llm.generate(prompt)
