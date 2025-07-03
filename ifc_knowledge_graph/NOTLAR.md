@@ -15,7 +15,7 @@ OpenAILLM kullanılan yerler Gemini ile çalışabilir hale getirilecek.
     "database": "neo4j"
   },
   "openai": {
-    "api_key": "AIzaSyBXl1PlLb8MRlEuquS53X3RjTVmuh9Y_SA",
+    "api_key": "",
     "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
     "llm_model": "gemini-2.5-flash",
     "temperature": 0.1
